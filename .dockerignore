@@ -1,0 +1,10 @@
+.git
+.venv
+data/
+__pycache__/
+*.pyc
+.python-version
+initial_spec.md
+README.md
+Makefile
+main.py

@@ -1,0 +1,44 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spotime — Sign in</title>
+<style>
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: #121212; color: #f5f5f5;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  form { width: 280px; display: flex; flex-direction: column; gap: 12px; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; text-align: center; }
+  input {
+    padding: 12px 14px; border-radius: 8px; border: none; font-size: 1rem;
+    background: #1e1e1e; color: #f5f5f5;
+  }
+  button {
+    padding: 12px; border: none; border-radius: 8px; background: #1db954;
+    color: #000; font-weight: 600; font-size: 1rem; cursor: pointer;
+  }
+  button:hover { background: #158f40; }
+  .err { color: #e55; font-size: .85rem; min-height: 1em; text-align: center; }
+</style>
+<form id="f">
+  <h1>Spotime</h1>
+  <input id="pw" type="password" placeholder="Password" autofocus autocomplete="current-password">
+  <button type="submit">Sign in</button>
+  <div class="err" id="err"></div>
+</form>
+<script>
+  const f = document.getElementById("f");
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: document.getElementById("pw").value }),
+    });
+    if (res.ok) {
+      location.href = "/";
+    } else {
+      document.getElementById("err").textContent = "Wrong password";
+    }
+  };
+</script>
