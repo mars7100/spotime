@@ -524,6 +524,12 @@ function setMediaSession(it) {
   set("seekbackward", (d) => { audio.currentTime = Math.max(0, audio.currentTime - (d.seekOffset || 15)); });
   set("seekforward", (d) => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + (d.seekOffset || 30)); });
   set("seekto", (d) => { if (d.seekTime != null) audio.currentTime = d.seekTime; });
+  // Music-queue skip from the lock screen; book chapters set their own in
+  // setBookMediaSession, so only wire these for standalone music.
+  const q = it.media_type === "music" ? musicQueue() : [];
+  const i = q.findIndex((x) => x.id === it.id);
+  set("previoustrack", i > 0 || audio.currentTime > 3 ? prevTrack : null);
+  set("nexttrack", i >= 0 && nextMusic(it) ? nextTrack : null);
 }
 
 function currentBody(extra = {}) {
@@ -609,6 +615,36 @@ audio.addEventListener("ended", () => {
 
 // ----- controls --------------------------------------------------------------
 els.playPause.onclick = () => (audio.paused ? audio.play() : audio.pause());
+
+// Next / previous track. Works for both book chapters and the music queue.
+// "Previous" restarts the current track if you're more than 3s in (standard
+// media-player behaviour), otherwise steps back a track.
+function nextTrack() {
+  if (!current) return;
+  if (currentBook) {
+    if (currentBook.index + 1 < currentBook.tracks.length) loadTrack(currentBook.index + 1);
+    return;
+  }
+  if (current.media_type === "music") {
+    const n = nextMusic(current); // honours the shuffle toggle
+    if (n) play(n);
+  }
+}
+function prevTrack() {
+  if (!current) return;
+  if (audio.currentTime > 3) { audio.currentTime = 0; saveNow(); return; }
+  if (currentBook) {
+    if (currentBook.index > 0) loadTrack(currentBook.index - 1);
+    return;
+  }
+  if (current.media_type === "music") {
+    const q = musicQueue();
+    const i = q.findIndex((x) => x.id === current.id);
+    if (i > 0) play(q[i - 1]);
+  }
+}
+document.getElementById("prev-track").onclick = prevTrack;
+document.getElementById("next-track").onclick = nextTrack;
 document.getElementById("seek-back").onclick = () => { audio.currentTime = Math.max(0, audio.currentTime - 15); saveNow(); };
 document.getElementById("seek-fwd").onclick = () => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 30); saveNow(); };
 els.seekbar.oninput = () => { if (audio.duration) audio.currentTime = (els.seekbar.value / 1000) * audio.duration; };
