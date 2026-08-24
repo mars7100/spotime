@@ -3,11 +3,13 @@
 A personal web audio library for music + audiobooks with **persistent playback
 position** — open a file later and it resumes near where you stopped.
 
-## Status: Phase 1 (local proof of concept)
+## Status: deployed to Cloud Run
 
-Runs entirely on your machine: audio files on local disk, metadata + playback
-state in SQLite. No Google Cloud yet. Storage and DB are behind small interfaces
-so GCS + Firestore drop in for later phases (see `initial_spec.md` §15).
+Runs locally on SQLite + local disk (`make dev`) or fully on Google Cloud —
+Firestore for metadata/state, GCS for audio via signed URLs, deployed as a
+Cloud Run service (`make cloud` / `make deploy`). Storage and DB sit behind small
+interfaces so the local and cloud backends are interchangeable (see
+`initial_spec.md` §15); the two do **not** share data.
 
 Proven working:
 
@@ -104,3 +106,15 @@ as a click-to-seek list in the player. Needs `ffmpeg` in the image (in Dockerfil
 2. Swap SQLite → Firestore. 3. Swap LocalStorage → GCS signed URLs.
 4. Richer metadata (chapters via ffprobe). 5. Dockerfile + Cloud Run.
 6. QoL: sorting, recently played, better artwork.
+7. **Cacheable playback URLs (cost optimization).** Today `play_url()` mints a
+   fresh V4 signed URL every session (`URL_TTL = 60min`, rotates each request), so
+   the browser can't reuse cached audio across sessions — every replay of the same
+   track re-downloads from GCS and bills egress (~$0.12/GB; ~$0.007/hr at 128kbps,
+   ~$0.014/hr at 256kbps). For a repeat-listening pattern (e.g. same classical
+   playlist while working) this is pure waste. Fix: make the URL stable enough to
+   cache — either round the signing timestamp to a fixed window (e.g. midnight) so
+   the same track yields an identical URL all day + set `Cache-Control` on the GCS
+   objects, or proxy audio through a stable `/audio/{id}` path with cache headers.
+   Then browser cache serves replays at zero egress, byte-for-byte identical (no
+   quality change). Deferred: want to measure real egress cost first before adding.
+   See `backend/stores/gcs_storage.py:play_url`.
