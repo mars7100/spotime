@@ -93,13 +93,26 @@ class StateUpdate(BaseModel):
     completed: Optional[bool] = None
 
 
+# Only audiobooks remember where you were. Music always starts at 0 — a song you
+# reopen (or come back to in a later session) plays from the top. Enforced here,
+# in the one place both the read and write paths pass through, so no stale music
+# position can survive in either store backend.
+def _keeps_state(item: dict) -> bool:
+    return item.get("media_type") == "audiobook"
+
+
+def _blank_state(media_id: str) -> dict:
+    return {"media_id": media_id, "position_seconds": 0,
+            "playback_speed": 1.0, "completed": False}
+
+
 # ----- library ---------------------------------------------------------------
 
 @app.get("/api/media")
 def get_library(search: Optional[str] = None):
     items = db.list_media(search)
     for it in items:
-        it["state"] = db.get_state(it["id"])
+        it["state"] = db.get_state(it["id"]) if _keeps_state(it) else None
     return items
 
 
@@ -108,7 +121,7 @@ def get_item(media_id: str):
     item = db.get_media(media_id)
     if not item:
         raise HTTPException(404, "media not found")
-    item["state"] = db.get_state(media_id)
+    item["state"] = db.get_state(media_id) if _keeps_state(item) else None
     return item
 
 
@@ -239,16 +252,21 @@ def get_play_url(media_id: str):
 
 @app.get("/api/media/{media_id}/state")
 def get_playback_state(media_id: str):
-    if not db.get_media(media_id):
+    item = db.get_media(media_id)
+    if not item:
         raise HTTPException(404, "media not found")
-    return db.get_state(media_id) or {"media_id": media_id, "position_seconds": 0,
-                                       "playback_speed": 1.0, "completed": False}
+    if not _keeps_state(item):
+        return _blank_state(media_id)
+    return db.get_state(media_id) or _blank_state(media_id)
 
 
 @app.put("/api/media/{media_id}/state")
 def put_playback_state(media_id: str, update: StateUpdate):
-    if not db.get_media(media_id):
+    item = db.get_media(media_id)
+    if not item:
         raise HTTPException(404, "media not found")
+    if not _keeps_state(item):
+        return _blank_state(media_id)  # music is stateless; nothing to persist
     return db.upsert_state(media_id, position_seconds=update.position_seconds,
                            playback_speed=update.playback_speed, completed=update.completed)
 

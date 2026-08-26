@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Spotime is a personal web audio library (music + audiobooks) whose defining feature is **persistent playback position** — reopen a file and it resumes where you stopped. Music resets to start after finishing; audiobooks keep their position.
+Spotime is a personal web audio library (music + audiobooks) whose defining feature is **persistent playback position** — reopen an audiobook and it resumes where you stopped. Music keeps no position at all: every play starts at 0. Enforced server-side in `main.py` (`_keeps_state`), so no store backend can hand back a stale music position.
 
 ## Commands
 

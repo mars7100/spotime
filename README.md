@@ -19,7 +19,7 @@ Proven working:
 - Play with HTTP Range streaming (seeking works), speed control, ±15/30s skip.
 - Playback position saved every ~15s, on pause/seek/tab-hide/close, and on end.
 - **Resume across browser sessions** — the Phase 1 milestone.
-- Music resets to start after finishing; audiobooks keep their position.
+- Only audiobooks keep their position. Music is stateless — every play starts at 0.
 
 ## Run
 

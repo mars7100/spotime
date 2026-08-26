@@ -36,6 +36,11 @@ const api = {
   async getState(id) {
     return (await fetch(`/api/media/${id}/state`)).json();
   },
+  // Only audiobooks remember anything. Music is stateless by design: every play
+  // starts at 0. The backend enforces this too — this just skips the round-trip.
+  keepsState(it) {
+    return it && it.media_type === "audiobook";
+  },
   async saveState(id, body) {
     // keepalive lets the request survive a page unload (tab close / navigation).
     await fetch(`/api/media/${id}/state`, {
@@ -316,7 +321,7 @@ async function play(it) {
   render();
 
   const [state, playInfo] = await Promise.all([
-    api.getState(it.id),
+    api.keepsState(it) ? api.getState(it.id) : Promise.resolve({}),
     fetch(`/api/media/${it.id}/play`).then((r) => r.json()),
   ]);
   audio.src = playInfo.url;
@@ -542,7 +547,9 @@ function currentBody(extra = {}) {
 
 function saveNow(extra = {}) {
   if (!current) return;
-  // Music resets on completion; audiobooks stay put (spec §8).
+  // Audiobooks only. Music keeps no position at all, so there is nothing to
+  // flush on pause, seek, tab-hide or track change.
+  if (!api.keepsState(current)) return;
   api.saveState(current.id, currentBody(extra));
 }
 
@@ -597,13 +604,9 @@ audio.addEventListener("ended", () => {
     return;
   }
   if (current.media_type === "music") {
-    // Music restarts next time (spec §8): reset to 0 and mark complete.
-    api.saveState(current.id, { position_seconds: 0, playback_speed: parseFloat(els.speed.value), completed: true });
+    // Nothing to persist — music never carries a position between plays.
     const next = nextMusic(current);
     if (next) {
-      // Clear `current` so play() doesn't flush the finished track's position
-      // over the reset-to-0 we just saved, then roll into the next song.
-      current = null;
       play(next);
       return;
     }
