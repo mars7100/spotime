@@ -38,6 +38,64 @@ h1 { font-size: 1.6rem; margin: 8px 0; }
   border-radius: 16px; cursor: pointer; font-size: .9rem;
 }
 .tab.active { background: var(--surface-2); color: var(--text); }
+
+/* Searchable tag filter — active filters as removable chips, plus a typeahead
+   search box so thousands of tags stay browsable. Hidden when there are none. */
+#tag-filter { margin: 0 0 12px; }
+#tag-filter[hidden] { display: none; }
+#filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+#filter-chips:not(:empty) { margin-bottom: 6px; }
+.tag-chip {
+  background: var(--surface); color: var(--muted); border: none; padding: 4px 10px;
+  border-radius: 14px; cursor: pointer; font-size: .8rem;
+}
+.tag-chip.active { background: var(--accent); color: #000; }
+.chip-x { margin-left: 6px; opacity: .8; font-weight: 700; }
+.tag-search { position: relative; max-width: 340px; }
+#tag-search-input {
+  width: 100%; padding: 8px 12px; border: none; border-radius: 8px;
+  background: var(--surface); color: var(--text); font-size: .9rem;
+}
+#tag-suggestions {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 12; margin-top: 4px;
+  max-height: 240px; overflow-y: auto; background: var(--surface-2);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+#tag-suggestions[hidden] { display: none; }
+.tag-suggestion {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  color: var(--text); padding: 8px 12px; cursor: pointer; font-size: .9rem;
+}
+.tag-suggestion:hover { background: rgba(255,255,255,.08); }
+
+/* Select mode + bulk tagging */
+#lib-controls { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+#select-toggle {
+  background: var(--surface); color: var(--muted); border: none; padding: 6px 14px;
+  border-radius: 16px; cursor: pointer; font-size: .85rem;
+}
+#select-toggle.active { background: var(--accent); color: #000; }
+#select-toggle[hidden] { display: none; }
+.item.selected { background: var(--surface-2); outline: 1px solid var(--accent); }
+.item.dimmed { opacity: .4; }
+.item-check { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
+#bulk-bar {
+  position: sticky; top: 0; z-index: 11; display: flex; flex-wrap: wrap; gap: 8px;
+  align-items: center; background: var(--surface-2); padding: 10px 12px;
+  border-radius: 10px; margin-bottom: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+#bulk-bar[hidden] { display: none; }
+.bulk-count { color: var(--text); font-size: .85rem; font-weight: 600; }
+#bulk-tag-input {
+  flex: 1; min-width: 140px; padding: 7px 10px; border: none; border-radius: 8px;
+  background: var(--surface); color: var(--text); font-size: .9rem;
+}
+#bulk-bar button {
+  background: var(--accent); color: #000; border: none; border-radius: 8px;
+  padding: 7px 14px; cursor: pointer; font-size: .85rem; font-weight: 600;
+}
+#bulk-bar button.bulk-remove { background: #e55; color: #fff; }
+#bulk-bar button.bulk-clear { background: var(--surface); color: var(--muted); font-weight: 400; }
 #upload-status { color: var(--muted); font-size: .85rem; min-height: 1em; }
 #library { margin: 8px 0; }
 .section-head {
@@ -67,12 +125,32 @@ h1 { font-size: 1.6rem; margin: 8px 0; }
   color: var(--muted); border: 1px solid var(--surface-2); padding: 1px 6px;
   border-radius: 8px; margin-left: 6px;
 }
-.item-delete {
+.item-menu-wrap { position: relative; flex-shrink: 0; }
+.item-menu-btn {
   background: none; border: none; color: var(--muted); cursor: pointer;
-  font-size: 1.1rem; padding: 4px 8px; opacity: 0; flex-shrink: 0;
+  font-size: 1.2rem; padding: 4px 10px; line-height: 1;
 }
-.item:hover .item-delete { opacity: 1; }
-.item-delete:hover { color: #e55; }
+.item-menu-btn:hover { color: var(--text); }
+.item-menu {
+  position: absolute; right: 0; top: 100%; z-index: 10; min-width: 120px;
+  background: var(--surface-2); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  overflow: hidden;
+}
+.item-menu[hidden] { display: none; }
+.item-menu button {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  color: #e55; padding: 10px 14px; cursor: pointer; font-size: .9rem;
+}
+.item-menu button:hover { background: rgba(255,255,255,.08); }
+/* Delete stays red (default); neutral actions like "Edit tags" use body text. */
+.item-menu button.menu-neutral { color: var(--text); }
+
+/* Tag pills under a music item's title — muted, filled labels. */
+.item-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.tag-pill {
+  font-size: .65rem; color: var(--muted); background: var(--surface-2);
+  padding: 1px 8px; border-radius: 8px;
+}
 
 #player {
   position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface);

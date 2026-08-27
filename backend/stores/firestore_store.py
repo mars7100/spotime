@@ -41,19 +41,20 @@ class FirestoreStore:
     def _with_defaults(doc: Optional[dict]) -> Optional[dict]:
         if doc is not None:
             doc.setdefault("chapters", [])
+            doc.setdefault("tags", [])
             for k in ("book_id", "book_title", "track_number"):
                 doc.setdefault(k, None)
         return doc
 
     def create_media(self, *, title, media_type, artist, album, duration_seconds,
                      storage_path, artwork_path, original_filename, id=None,
-                     chapters=None, book_id=None, book_title=None, track_number=None) -> dict:
+                     chapters=None, tags=None, book_id=None, book_title=None, track_number=None) -> dict:
         doc = {
             "id": id or new_id(), "title": title, "media_type": media_type, "artist": artist,
             "album": album, "duration_seconds": duration_seconds, "storage_path": storage_path,
             "artwork_path": artwork_path, "original_filename": original_filename,
-            "chapters": chapters or [], "book_id": book_id, "book_title": book_title,
-            "track_number": track_number, "created_at": now_iso(),
+            "chapters": chapters or [], "tags": tags or [], "book_id": book_id,
+            "book_title": book_title, "track_number": track_number, "created_at": now_iso(),
         }
         self.db.collection(MEDIA).document(doc["id"]).set(doc)
         return doc
@@ -75,6 +76,13 @@ class FirestoreStore:
                            artwork_path: Optional[str]) -> None:
         self.db.collection(MEDIA).document(media_id).update(
             {"storage_path": storage_path, "artwork_path": artwork_path})
+
+    def update_media_tags(self, media_id: str, tags: list[str]) -> Optional[dict]:
+        ref = self.db.collection(MEDIA).document(media_id)
+        if not ref.get().exists:
+            return None
+        ref.update({"tags": tags})
+        return self.get_media(media_id)
 
     def delete_media(self, media_id: str) -> bool:
         ref = self.db.collection(MEDIA).document(media_id)

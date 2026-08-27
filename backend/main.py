@@ -93,6 +93,16 @@ class StateUpdate(BaseModel):
     completed: Optional[bool] = None
 
 
+class TagsUpdate(BaseModel):
+    tags: list[str]
+
+
+class BulkTagsUpdate(BaseModel):
+    ids: list[str]
+    add: list[str] = []
+    remove: list[str] = []
+
+
 # Only audiobooks remember where you were. Music always starts at 0 — a song you
 # reopen (or come back to in a later session) plays from the top. Enforced here,
 # in the one place both the read and write paths pass through, so no stale music
@@ -149,6 +159,7 @@ class RegisterReq(BaseModel):
     book_id: Optional[str] = None
     book_title: Optional[str] = None
     track_number: Optional[int] = None
+    tags: Optional[list[str]] = None
 
 
 def _ext_or_400(filename: str) -> str:
@@ -223,7 +234,7 @@ def register_media(req: RegisterReq):
         album=req.album, duration_seconds=req.duration_seconds,
         storage_path=key, artwork_path=artwork_path, original_filename=req.filename,
         chapters=chapter_list, book_id=req.book_id, book_title=req.book_title,
-        track_number=req.track_number,
+        track_number=req.track_number, tags=req.tags,
     )
     return db.get_media(req.id)
 
@@ -269,6 +280,47 @@ def put_playback_state(media_id: str, update: StateUpdate):
         return _blank_state(media_id)  # music is stateless; nothing to persist
     return db.upsert_state(media_id, position_seconds=update.position_seconds,
                            playback_speed=update.playback_speed, completed=update.completed)
+
+
+# Tags are free-form labels for filtering the library. Normalize on write so
+# "Gym", " gym " and "gym" collapse to one, keeping first-seen order.
+def _normalize_tags(tags: list[str]) -> list[str]:
+    seen, out = set(), []
+    for t in tags:
+        t = (t or "").strip().lower()
+        if t and t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
+
+@app.put("/api/media/{media_id}/tags")
+def put_tags(media_id: str, update: TagsUpdate):
+    item = db.get_media(media_id)
+    if not item:
+        raise HTTPException(404, "media not found")
+    return db.update_media_tags(media_id, _normalize_tags(update.tags))
+
+
+# Bulk add/remove across many tracks in one call, so tagging a big selection is
+# one request instead of N. Per track: drop the `remove` set, then append `add`
+# (keeping each track's other tags and first-seen order). Missing ids are skipped.
+@app.post("/api/media/tags/bulk")
+def bulk_tags(update: BulkTagsUpdate):
+    add = _normalize_tags(update.add)
+    remove = set(_normalize_tags(update.remove))
+    updated = 0
+    for media_id in update.ids:
+        item = db.get_media(media_id)
+        if not item:
+            continue
+        new = [t for t in (item.get("tags") or []) if t not in remove]
+        for t in add:
+            if t not in new:
+                new.append(t)
+        db.update_media_tags(media_id, new)
+        updated += 1
+    return {"updated": updated}
 
 
 @app.get("/api/media/{media_id}/artwork")

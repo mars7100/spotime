@@ -50,11 +50,31 @@ const api = {
       keepalive: true,
     });
   },
+  async setTags(id, tags) {
+    const res = await fetch(`/api/media/${id}/tags`, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tags }),
+    });
+    if (!res.ok) throw new Error("could not save tags");
+    return res.json();
+  },
+  // Add/remove tags across many tracks in one call (bulk tagging).
+  async bulkTags(ids, { add = [], remove = [] }) {
+    const res = await fetch("/api/media/tags/bulk", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, add, remove }),
+    });
+    if (!res.ok) throw new Error("bulk tag failed");
+    return res.json();
+  },
 };
 
 // ----- state -----------------------------------------------------------------
 let library = [];
 let filter = "all";
+let selectedTags = new Set(); // tag chips currently AND-filtering the music list
+let selectMode = false; // when on, cards show checkboxes for bulk tagging
+let selectedIds = new Set(); // media ids ticked in select mode
 let current = null; // the MediaItem (single track) currently loaded in the player
 let currentBook = null; // { id, title, tracks, index, artist, artwork_id } when playing a book
 let saveTimer = null;
@@ -64,6 +84,12 @@ const els = {
   library: document.getElementById("library"),
   search: document.getElementById("search"),
   uploadStatus: document.getElementById("upload-status"),
+  tagFilter: document.getElementById("tag-filter"),
+  filterChips: document.getElementById("filter-chips"),
+  tagSearchInput: document.getElementById("tag-search-input"),
+  tagSuggestions: document.getElementById("tag-suggestions"),
+  selectToggle: document.getElementById("select-toggle"),
+  bulkBar: document.getElementById("bulk-bar"),
   fileInput: document.getElementById("file-input"),
   player: document.getElementById("player"),
   art: document.getElementById("player-art"),
@@ -198,8 +224,19 @@ function cardPlaying(c) {
 }
 
 function render() {
+  renderTagFilter();
+  renderSelectUI();
   els.library.innerHTML = "";
-  const items = library.filter((it) => filter === "all" || it.media_type === filter);
+  let items = library.filter((it) => filter === "all" || it.media_type === filter);
+  // AND-filter by selected tags. Books/audiobooks carry no tags, so they drop
+  // out naturally once any tag is selected — expected.
+  if (selectedTags.size) {
+    items = items.filter((it) => {
+      const tags = it.tags || [];
+      for (const t of selectedTags) if (!tags.includes(t)) return false;
+      return true;
+    });
+  }
   const cards = toCards(items);
 
   if (!cards.length) {
@@ -217,6 +254,152 @@ function render() {
     els.library.appendChild(section("Continue listening", continuing));
   }
   els.library.appendChild(section(continuing.length ? "Library" : null, rest));
+}
+
+// The union of every tag across standalone music, sorted. Only music carries
+// tags, so books are excluded.
+function allMusicTags() {
+  const all = new Set();
+  for (const it of library) {
+    if (it.media_type === "music" && !it.book_id) {
+      for (const t of (it.tags || [])) all.add(t);
+    }
+  }
+  return all;
+}
+
+// Searchable tag filter. A flat chip wall doesn't scale past a few dozen tags, so
+// the active filters show as removable chips and everything else is found by
+// typing in the search box (typeahead). Music-only, hidden when there are no tags.
+function renderTagFilter() {
+  const all = allMusicTags();
+  // Drop selections whose tag no longer exists (e.g. after an edit/delete).
+  for (const t of [...selectedTags]) if (!all.has(t)) selectedTags.delete(t);
+
+  if (!all.size) { els.tagFilter.hidden = true; return; }
+  els.tagFilter.hidden = false;
+
+  els.filterChips.innerHTML = "";
+  for (const tag of [...selectedTags].sort()) {
+    const chip = document.createElement("button");
+    chip.className = "tag-chip active";
+    chip.innerHTML = `${escapeHtml(tag)}<span class="chip-x">×</span>`;
+    chip.title = "Remove filter";
+    chip.onclick = () => { selectedTags.delete(tag); render(); };
+    els.filterChips.appendChild(chip);
+  }
+  renderTagSuggestions();
+}
+
+function addFilterTag(tag) {
+  selectedTags.add(tag);
+  els.tagSearchInput.value = "";
+  render();
+  els.tagSearchInput.focus();
+}
+
+// Typeahead list under the search box: tags matching what's typed and not already
+// selected, capped so thousands of tags stay responsive. Only shown while focused.
+function renderTagSuggestions() {
+  const q = els.tagSearchInput.value.trim().toLowerCase();
+  const matches = [...allMusicTags()].sort()
+    .filter((t) => !selectedTags.has(t) && (!q || t.includes(q)));
+  els.tagSuggestions.innerHTML = "";
+  if (!matches.length || document.activeElement !== els.tagSearchInput) {
+    els.tagSuggestions.hidden = true;
+    return;
+  }
+  for (const tag of matches.slice(0, 50)) {
+    const opt = document.createElement("button");
+    opt.className = "tag-suggestion";
+    opt.textContent = tag;
+    // mousedown fires before the input's blur, so the click isn't swallowed.
+    opt.onmousedown = (e) => { e.preventDefault(); addFilterTag(tag); };
+    els.tagSuggestions.appendChild(opt);
+  }
+  els.tagSuggestions.hidden = false;
+}
+
+els.tagSearchInput.oninput = renderTagSuggestions;
+els.tagSearchInput.onfocus = renderTagSuggestions;
+els.tagSearchInput.onblur = () => setTimeout(() => { els.tagSuggestions.hidden = true; }, 120);
+els.tagSearchInput.onkeydown = (e) => {
+  if (e.key === "Enter") {
+    const first = els.tagSuggestions.querySelector(".tag-suggestion");
+    if (first) addFilterTag(first.textContent);
+  } else if (e.key === "Escape") {
+    els.tagSearchInput.value = "";
+    els.tagSuggestions.hidden = true;
+  }
+};
+
+// ----- select mode / bulk tagging --------------------------------------------
+els.selectToggle.onclick = () => {
+  selectMode = !selectMode;
+  if (!selectMode) selectedIds.clear();
+  render();
+};
+
+function toggleSelected(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  render();
+}
+
+// The "Select" toggle only makes sense with music present; the bulk action bar
+// appears once something is ticked.
+function renderSelectUI() {
+  els.selectToggle.hidden = !library.some((it) => it.media_type === "music");
+  els.selectToggle.classList.toggle("active", selectMode);
+  els.selectToggle.textContent = selectMode ? "Done" : "Select";
+  renderBulkBar();
+}
+
+function renderBulkBar() {
+  if (!selectMode || !selectedIds.size) { els.bulkBar.hidden = true; return; }
+  els.bulkBar.hidden = false;
+  els.bulkBar.innerHTML = "";
+
+  const count = document.createElement("span");
+  count.className = "bulk-count";
+  count.textContent = `${selectedIds.size} selected`;
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "bulk-tag-input";
+  input.placeholder = "tags, comma-separated";
+  input.autocomplete = "off";
+
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "Add";
+  addBtn.onclick = () => applyBulk(input.value, "add", input);
+
+  const rmBtn = document.createElement("button");
+  rmBtn.className = "bulk-remove";
+  rmBtn.textContent = "Remove";
+  rmBtn.onclick = () => applyBulk(input.value, "remove", input);
+
+  const clear = document.createElement("button");
+  clear.className = "bulk-clear";
+  clear.textContent = "Clear";
+  clear.onclick = () => { selectedIds.clear(); render(); };
+
+  els.bulkBar.append(count, input, addBtn, rmBtn, clear);
+}
+
+// Apply add/remove to the ticked tracks. Selection persists after, so you can
+// add then remove without re-ticking; the server normalises the tags.
+function applyBulk(value, op, input) {
+  const tags = value.split(",").map((t) => t.trim()).filter(Boolean);
+  if (!tags.length) { toast("Type a tag first"); return; }
+  const ids = [...selectedIds];
+  const body = op === "add" ? { add: tags } : { remove: tags };
+  api.bulkTags(ids, body)
+    .then((r) => {
+      toast(`${op === "add" ? "Added to" : "Removed from"} ${r.updated} track(s)`);
+      input.value = "";
+      refresh(); // reloads library + re-renders pills/chips; keeps the selection
+    })
+    .catch(() => toast("Bulk tagging failed"));
 }
 
 function section(label, cards) {
@@ -257,17 +440,95 @@ function renderItem(it) {
       <div class="progress"><div style="width:${pct}%"></div></div>
       <div class="resume">Resume ${fmt(st.position_seconds)} · ${Math.round(pct)}%</div>`;
   }
+  // Tag pills, music only (audiobooks carry no tags).
+  if (it.media_type === "music" && (it.tags || []).length) {
+    body.innerHTML += `<div class="item-tags">` +
+      it.tags.map((t) => `<span class="tag-pill">${escapeHtml(t)}</span>`).join("") +
+      `</div>`;
+  }
   li.appendChild(body);
 
-  const del = document.createElement("button");
-  del.className = "item-delete";
-  del.textContent = "🗑";
-  del.title = "Delete";
-  del.onclick = (e) => { e.stopPropagation(); onDelete(it); };
-  li.appendChild(del);
+  // Only music gets the "Edit tags" action; books/audiobooks stay untagged.
+  const onEditTags = it.media_type === "music" ? () => editTags(it) : null;
+  li.appendChild(renderItemMenu(() => onDelete(it), onEditTags));
 
-  li.onclick = () => play(it);
+  // Select mode: music rows get a checkbox and toggle selection instead of
+  // playing; non-music rows (audiobooks) can't be tagged, so they dim out.
+  if (selectMode) {
+    if (it.media_type === "music") {
+      li.classList.add("selectable");
+      if (selectedIds.has(it.id)) li.classList.add("selected");
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "item-check";
+      cb.checked = selectedIds.has(it.id);
+      li.insertBefore(cb, li.firstChild);
+      li.onclick = (e) => {
+        if (e.target.closest(".item-menu-wrap")) return; // let the ⋯ menu work
+        toggleSelected(it.id);
+      };
+    } else {
+      li.classList.add("dimmed");
+    }
+  } else {
+    li.onclick = () => play(it);
+  }
   return li;
+}
+
+function renderItemMenu(onDelete, onEditTags) {
+  const wrap = document.createElement("div");
+  wrap.className = "item-menu-wrap";
+
+  const btn = document.createElement("button");
+  btn.className = "item-menu-btn";
+  btn.textContent = "⋯";
+  btn.title = "More";
+
+  const menu = document.createElement("div");
+  menu.className = "item-menu";
+  menu.hidden = true;
+
+  // Optional "Edit tags" — only wired for music (books never pass it).
+  if (onEditTags) {
+    const tagBtn = document.createElement("button");
+    tagBtn.className = "menu-neutral";
+    tagBtn.textContent = "Edit tags";
+    tagBtn.onclick = (e) => { e.stopPropagation(); menu.hidden = true; onEditTags(); };
+    menu.appendChild(tagBtn);
+  }
+
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "Delete";
+  delBtn.onclick = (e) => { e.stopPropagation(); menu.hidden = true; onDelete(); };
+  menu.appendChild(delBtn);
+
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const opening = menu.hidden;
+    closeAllItemMenus();
+    menu.hidden = !opening;
+  };
+
+  wrap.appendChild(btn);
+  wrap.appendChild(menu);
+  return wrap;
+}
+
+function closeAllItemMenus() {
+  document.querySelectorAll(".item-menu").forEach((m) => (m.hidden = true));
+}
+document.addEventListener("click", closeAllItemMenus);
+
+// Lightweight tag editor — a prompt matches the app's other confirm()/prompt()
+// dialogs. The server normalises (lowercase/trim/dedupe), so we just refresh.
+function editTags(it) {
+  const current = (it.tags || []).join(", ");
+  const input = prompt("Tags (comma-separated):", current);
+  if (input === null) return; // cancelled
+  const tags = input.split(",").map((t) => t.trim()).filter(Boolean);
+  api.setTags(it.id, tags).then(() => { toast("Tags saved"); refresh(); })
+    .catch(() => toast("Could not save tags"));
 }
 
 function renderBookCard(c) {
@@ -295,14 +556,11 @@ function renderBookCard(c) {
   }
   li.appendChild(body);
 
-  const del = document.createElement("button");
-  del.className = "item-delete";
-  del.textContent = "🗑";
-  del.title = "Delete";
-  del.onclick = (e) => { e.stopPropagation(); onDeleteBook(c); };
-  li.appendChild(del);
+  li.appendChild(renderItemMenu(() => onDeleteBook(c)));
 
-  li.onclick = () => openBook(c);
+  // Books can't be tagged, so they dim out and go inert during select mode.
+  if (selectMode) li.classList.add("dimmed");
+  else li.onclick = () => openBook(c);
   return li;
 }
 
@@ -312,6 +570,27 @@ function escapeHtml(s) {
 }
 
 // ----- playback --------------------------------------------------------------
+// The next music track's play URL, fetched while the current one is still
+// playing: { it, url }. It exists so the `ended` → next-song hand-off needs no
+// network at all. With the screen locked, iOS only lets a background page start
+// a *new* source as a prompt continuation of the finished one — an await on a
+// round-trip (which on a scaled-to-zero Cloud Run can be a multi-second cold
+// start) blows that window and playback just stops.
+let preloadedNext = null;
+
+function prefetchNext(it) {
+  preloadedNext = null;
+  if (!it || currentBook || it.media_type !== "music") return;
+  const next = nextMusic(it);
+  if (!next) return;
+  fetch(`/api/media/${next.id}/play`)
+    .then((r) => r.json())
+    // Pin the item, not just the URL: under shuffle nextMusic() rolls a fresh
+    // random pick each call, so the ended handler must play what we prefetched.
+    .then((info) => { preloadedNext = { it: next, url: info.url }; })
+    .catch(() => {});
+}
+
 async function play(it) {
   // Switching tracks: flush the outgoing track's position first.
   if (current && current.id !== it.id) saveNow();
@@ -324,7 +603,17 @@ async function play(it) {
     api.keepsState(it) ? api.getState(it.id) : Promise.resolve({}),
     fetch(`/api/media/${it.id}/play`).then((r) => r.json()),
   ]);
-  audio.src = playInfo.url;
+  startTrack(it, playInfo.url, state);
+}
+
+// Everything after the URL is in hand — deliberately synchronous, so it can run
+// start-to-finish inside the `ended` handler when the next URL is preloaded.
+function startTrack(it, url, state = {}) {
+  currentBook = null;
+  current = it;
+  render();
+
+  audio.src = url;
   els.title.textContent = it.title;
   els.artist.textContent = [it.artist, it.album].filter(Boolean).join(" — ");
   els.art.src = it.artwork_path ? `/api/media/${it.id}/artwork` : "";
@@ -334,19 +623,26 @@ async function play(it) {
   audio.playbackRate = speed;
   els.speed.value = String(speed);
 
-  // Resume position once the browser knows the media is seekable.
   const resumeAt = state.position_seconds || 0;
-  audio.addEventListener("loadedmetadata", function once() {
-    audio.removeEventListener("loadedmetadata", once);
-    if (resumeAt > 5 && resumeAt < (audio.duration || Infinity) - 1) {
-      audio.currentTime = resumeAt;
-      toast(`Resumed from ${fmt(resumeAt)}`);
-    }
-    audio.play().catch(() => {});
-  });
-  audio.load();
+  if (resumeAt > 5) {
+    // Resuming: the seek has to wait until the browser knows the media is
+    // seekable. Only audiobooks land here, and only from a tap.
+    audio.addEventListener("loadedmetadata", function once() {
+      audio.removeEventListener("loadedmetadata", once);
+      if (resumeAt < (audio.duration || Infinity) - 1) {
+        audio.currentTime = resumeAt;
+        toast(`Resumed from ${fmt(resumeAt)}`);
+      }
+      audio.play().catch(() => {});
+    });
+    audio.load();
+  } else {
+    audio.load();
+    audio.play().catch(() => {}); // no seek to wait for — start now
+  }
   setMediaSession(it);
   setupChapters(it);
+  prefetchNext(it);
 }
 
 // ----- audiobook (book) playback --------------------------------------------
@@ -371,6 +667,7 @@ async function loadTrack(idx, { resume = true, autoplay = true } = {}) {
 
   const it = book.tracks[idx];
   book.index = idx;
+  preloadedNext = null; // book mode has its own advance path
   current = it;
   render();
 
@@ -510,6 +807,7 @@ els.shuffleBtn.onclick = () => {
   shuffle = !shuffle;
   localStorage.setItem("spotime_shuffle", shuffle ? "1" : "0");
   applyShuffleUI();
+  prefetchNext(current); // the pick we preloaded came from the old mode
 };
 applyShuffleUI();
 
@@ -605,6 +903,14 @@ audio.addEventListener("ended", () => {
   }
   if (current.media_type === "music") {
     // Nothing to persist — music never carries a position between plays.
+    // Prefer the preloaded hand-off: no await between `ended` and `play()`, so
+    // it survives a locked screen. Falls back to the async path if the prefetch
+    // hasn't landed (or failed).
+    const pre = preloadedNext;
+    if (pre) {
+      startTrack(pre.it, pre.url);
+      return;
+    }
     const next = nextMusic(current);
     if (next) {
       play(next);

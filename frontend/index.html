@@ -25,6 +25,20 @@
     <button class="tab" data-filter="audiobook">Audiobooks</button>
   </nav>
 
+  <div id="tag-filter" hidden>
+    <div id="filter-chips"></div>
+    <div class="tag-search">
+      <input id="tag-search-input" type="text" placeholder="Filter by tag…" autocomplete="off">
+      <div id="tag-suggestions" hidden></div>
+    </div>
+  </div>
+
+  <div id="lib-controls">
+    <button id="select-toggle" type="button" hidden>Select</button>
+  </div>
+
+  <div id="bulk-bar" hidden></div>
+
   <div id="upload-status"></div>
   <div id="library"></div>
 </div>

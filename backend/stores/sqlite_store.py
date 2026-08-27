@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS media (
     artwork_path     TEXT,
     original_filename TEXT,
     chapters         TEXT,
+    tags             TEXT,
     book_id          TEXT,
     book_title       TEXT,
     track_number     INTEGER,
@@ -43,7 +44,7 @@ class SqliteStore:
             conn.executescript(SCHEMA)
             # Migrate DBs created before newer columns existed.
             cols = {r["name"] for r in conn.execute("PRAGMA table_info(media)")}
-            for col, decl in (("chapters", "TEXT"), ("book_id", "TEXT"),
+            for col, decl in (("chapters", "TEXT"), ("tags", "TEXT"), ("book_id", "TEXT"),
                               ("book_title", "TEXT"), ("track_number", "INTEGER")):
                 if col not in cols:
                     conn.execute(f"ALTER TABLE media ADD COLUMN {col} {decl}")
@@ -63,27 +64,29 @@ class SqliteStore:
     def _row_to_media(row) -> dict:
         d = dict(row)
         d["chapters"] = json.loads(d["chapters"]) if d.get("chapters") else []
+        d["tags"] = json.loads(d["tags"]) if d.get("tags") else []
         return d
 
     # ----- media -----
     def create_media(self, *, title, media_type, artist, album, duration_seconds,
                      storage_path, artwork_path, original_filename, id=None,
-                     chapters=None, book_id=None, book_title=None, track_number=None) -> dict:
+                     chapters=None, tags=None, book_id=None, book_title=None, track_number=None) -> dict:
         row = {
             "id": id or new_id(), "title": title, "media_type": media_type, "artist": artist,
             "album": album, "duration_seconds": duration_seconds, "storage_path": storage_path,
             "artwork_path": artwork_path, "original_filename": original_filename,
-            "chapters": json.dumps(chapters or []), "book_id": book_id,
-            "book_title": book_title, "track_number": track_number, "created_at": now_iso(),
+            "chapters": json.dumps(chapters or []), "tags": json.dumps(tags or []),
+            "book_id": book_id, "book_title": book_title, "track_number": track_number,
+            "created_at": now_iso(),
         }
         with self._connect() as conn:
             conn.execute(
                 """INSERT INTO media (id, title, media_type, artist, album, duration_seconds,
                                       storage_path, artwork_path, original_filename, chapters,
-                                      book_id, book_title, track_number, created_at)
+                                      tags, book_id, book_title, track_number, created_at)
                    VALUES (:id, :title, :media_type, :artist, :album, :duration_seconds,
                            :storage_path, :artwork_path, :original_filename, :chapters,
-                           :book_id, :book_title, :track_number, :created_at)""",
+                           :tags, :book_id, :book_title, :track_number, :created_at)""",
                 row,
             )
         return self._row_to_media(row)
@@ -108,6 +111,14 @@ class SqliteStore:
         with self._connect() as conn:
             conn.execute("UPDATE media SET storage_path = ?, artwork_path = ? WHERE id = ?",
                          (storage_path, artwork_path, media_id))
+
+    def update_media_tags(self, media_id: str, tags: list[str]) -> Optional[dict]:
+        if self.get_media(media_id) is None:
+            return None
+        with self._connect() as conn:
+            conn.execute("UPDATE media SET tags = ? WHERE id = ?",
+                         (json.dumps(tags), media_id))
+        return self.get_media(media_id)
 
     def delete_media(self, media_id: str) -> bool:
         with self._connect() as conn:

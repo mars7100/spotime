@@ -25,6 +25,7 @@ create_media = store.create_media
 list_media = store.list_media
 get_media = store.get_media
 update_media_paths = store.update_media_paths
+update_media_tags = store.update_media_tags
 delete_media = store.delete_media
 get_state = store.get_state
 upsert_state = store.upsert_state
