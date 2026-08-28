@@ -14,8 +14,24 @@
         Folder
         <input id="folder-input" type="file" hidden webkitdirectory>
       </label>
+      <button id="download-toggle" class="upload-btn secondary" type="button">Link</button>
     </span>
   </header>
+
+  <form id="download-form" hidden>
+    <input id="download-url" type="url" placeholder="YouTube video or playlist URL" autocomplete="off">
+    <input id="download-tags" type="text" placeholder="Tags (comma separated, optional)" autocomplete="off">
+    <label class="dl-check">
+      <input id="download-playlist" type="checkbox">
+      Download the whole playlist
+    </label>
+    <div class="dl-actions">
+      <button type="submit" class="upload-btn">Download</button>
+      <button type="button" id="download-cancel" class="upload-btn secondary">Cancel</button>
+    </div>
+  </form>
+
+  <div id="download-status"></div>
 
   <input id="search" type="search" placeholder="Search title, artist, album…">
 
@@ -47,6 +63,8 @@
 <div id="drop-hint" hidden>Drop audio files or a folder to upload</div>
 
 <footer id="player" hidden>
+  <button id="player-collapse" title="Minimize">⌄</button>
+  <div id="player-context"></div>
   <img id="player-art" alt="">
   <div class="player-meta">
     <div id="player-title">—</div>

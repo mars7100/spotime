@@ -20,7 +20,7 @@ from fastapi.responses import (FileResponse, JSONResponse, RedirectResponse,
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import chapters, config, db, metadata
+from . import chapters, config, db, downloader, metadata
 from .storage import LocalStorage, storage
 from .stores import new_id
 
@@ -237,6 +237,39 @@ def register_media(req: RegisterReq):
         track_number=req.track_number, tags=req.tags,
     )
     return db.get_media(req.id)
+
+
+# ----- downloads (server-side, yt-dlp) ---------------------------------------
+# The mirror image of upload: instead of the browser pushing bytes to storage, the
+# server pulls them from a URL. Jobs run in the background (see downloader.py) and
+# the client polls for progress; each finished track is registered immediately, so
+# a job that dies partway still leaves everything it managed to fetch.
+
+class DownloadReq(BaseModel):
+    url: str
+    playlist: bool = False
+    tags: list[str] = []
+
+
+@app.post("/api/download", status_code=202)
+def start_download(req: DownloadReq):
+    url = req.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(400, "url must start with http:// or https://")
+    return downloader.start(url, req.playlist, _normalize_tags(req.tags))
+
+
+@app.get("/api/download/{job_id}")
+def get_download(job_id: str):
+    job = downloader.get_job(job_id)
+    if not job:
+        raise HTTPException(404, "job not found")
+    return job
+
+
+@app.get("/api/downloads")
+def list_downloads():
+    return downloader.list_jobs()
 
 
 @app.delete("/api/media/{media_id}", status_code=204)

@@ -27,7 +27,22 @@ h1 { font-size: 1.6rem; margin: 8px 0; }
 }
 /* An ID selector out-specifies the UA `[hidden]{display:none}` rule, so elements
    whose ID rule sets `display` need an explicit hidden rule or they never hide. */
-#drop-hint[hidden], #player[hidden] { display: none; }
+#drop-hint[hidden], #player[hidden], #download-form[hidden] { display: none; }
+
+/* Download-from-a-URL form, collapsed under the header until "Link" is clicked. */
+#download-form {
+  display: flex; flex-direction: column; gap: 8px; margin-top: 12px;
+  background: var(--surface); border-radius: 10px; padding: 12px;
+}
+#download-form input[type="url"], #download-form input[type="text"] {
+  width: 100%; padding: 9px 12px; border-radius: 8px; border: none;
+  background: var(--surface-2); color: var(--text); font-size: .95rem;
+}
+.dl-check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: .85rem; }
+.dl-check input { accent-color: var(--accent); }
+.dl-actions { display: flex; gap: 8px; }
+#download-toggle.active { background: var(--accent); color: #000; }
+#download-status { color: var(--muted); font-size: .85rem; min-height: 1em; margin-top: 8px; }
 #search {
   width: 100%; padding: 10px 14px; margin: 12px 0; border-radius: 8px;
   border: none; background: var(--surface); color: var(--text); font-size: 1rem;
@@ -176,8 +191,49 @@ h1 { font-size: 1.6rem; margin: 8px 0; }
 .speed { font-size: .8rem; color: var(--muted); display: flex; gap: 6px; align-items: center; }
 .speed select { background: var(--surface-2); color: var(--text); border: none; border-radius: 6px; padding: 4px; }
 
+/* The mini bar's art + metadata are the affordance to open the full-screen view. */
+#player:not(.expanded) #player-art,
+#player:not(.expanded) .player-meta { cursor: pointer; }
+/* Collapse chevron + source label only exist in the expanded (full-screen) state. */
+#player-collapse, #player-context { display: none; }
+
+/* Full-screen "now playing" — the SAME player element, re-flowed. Every control
+   is the same node as the mini bar, so playback state stays single-sourced. */
+#player.expanded {
+  inset: 0; z-index: 30; height: 100%; padding: 24px;
+  grid-template-columns: none; display: flex; flex-direction: column;
+  justify-content: center; gap: 18px; border-top: none;
+  background: linear-gradient(180deg, var(--surface-2), var(--bg) 60%);
+}
+#player.expanded #player-collapse {
+  display: block; position: absolute; top: 12px; left: 14px;
+  background: none; border: none; color: var(--text); font-size: 1.8rem;
+  line-height: 1; cursor: pointer; padding: 4px 8px;
+}
+#player.expanded #player-context {
+  display: block; position: absolute; top: 20px; left: 60px; right: 60px;
+  text-align: center; font-size: .82rem; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#player.expanded #player-art {
+  order: 1; width: min(72vw, 360px); height: min(72vw, 360px);
+  align-self: center; border-radius: 12px; box-shadow: 0 16px 44px rgba(0,0,0,.55);
+}
+#player.expanded .player-meta { order: 2; text-align: center; width: 100%; }
+#player.expanded #player-title { font-size: 1.5rem; white-space: normal; }
+#player.expanded #player-artist { font-size: 1rem; margin-top: 4px; }
+#player.expanded .player-progress { order: 3; }
+#player.expanded .player-controls {
+  order: 4; justify-content: center; gap: 12px;
+}
+#player.expanded .player-controls button { font-size: 1.05rem; padding: 12px 15px; }
+#player.expanded #play-pause {
+  width: 64px; height: 64px; border-radius: 50%; font-size: 1.4rem; padding: 0;
+}
+#player.expanded .speed { order: 5; justify-content: center; }
+
 #chapters-panel {
-  position: fixed; bottom: 96px; left: 0; right: 0; z-index: 9;
+  position: fixed; bottom: 96px; left: 0; right: 0; z-index: 31;
   max-width: 720px; margin: 0 auto; max-height: 45vh; overflow-y: auto;
   background: var(--surface); border: 1px solid var(--surface-2);
   border-radius: 12px 12px 0 0; box-shadow: 0 -6px 24px rgba(0,0,0,.4);

@@ -2,8 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# ffprobe (from ffmpeg) extracts audiobook chapters over HTTP range requests.
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+# ffprobe (from ffmpeg) extracts audiobook chapters over HTTP range requests;
+# ffmpeg also transcodes downloads to mp3. Node solves the JS challenges YouTube
+# throws at yt-dlp — without it downloads often fail on datacenter IPs.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv, then dependencies from the locked set (no dev deps).

@@ -67,6 +67,7 @@ backend/
   db.py         SQLite (mirrors the media/ and playback_state/ collections)
   storage.py    Storage interface + LocalStorage (GCS swaps in here later)
   metadata.py   Mutagen extraction
+  downloader.py Server-side yt-dlp download jobs (URL -> library)
   config.py     Paths / settings (env-overridable)
 frontend/
   index.html, app.js, style.css   single-page vanilla JS client
@@ -86,6 +87,9 @@ data/           gitignored — audio files + spotime.db
 | GET/PUT| `/api/media/{id}/state`     | get / update playback state         |
 | GET    | `/api/media/{id}/artwork`   | cover art                           |
 | GET    | `/api/stream/{id}`          | Range-capable audio stream (local)  |
+| POST   | `/api/download`             | start a yt-dlp download job         |
+| GET    | `/api/download/{job_id}`    | job progress                        |
+| GET    | `/api/downloads`            | all known jobs                      |
 
 ### Upload flow
 
@@ -93,6 +97,25 @@ Bytes never pass through the backend (Cloud Run caps request bodies at ~32 MiB).
 The browser extracts metadata itself (jsmediatags for tags/cover, an `<audio>`
 element for duration), requests a signed PUT URL, uploads straight to GCS, then
 registers the record. Works for large audiobooks.
+
+### Download flow (the "Link" button)
+
+The mirror image of upload: paste a YouTube URL and the *server* fetches it with
+`yt-dlp`, transcodes to mp3 (192k) via ffmpeg, stores the thumbnail as cover art
+and registers a music track — playlist title lands in the album field. Optionally
+takes the whole playlist (capped by `SPOTIME_DOWNLOAD_MAX`, default 50). Jobs run
+one at a time on a background worker and the page polls `/api/downloads` for
+progress; each track is registered the moment it lands, so a job that dies partway
+keeps whatever it got. Re-downloading a video already in the library skips it
+(matched on the video id stored as `original_filename`).
+
+This is the one path where audio bytes pass through the app — a song-sized mp3 is
+small enough to buffer, unlike the audiobooks the upload flow is built for.
+
+Deployment caveats: YouTube often blocks Cloud Run's datacenter IPs (point
+`SPOTIME_YTDLP_COOKIES` at a `cookies.txt` to authenticate), and an instance that
+scales to zero takes any in-flight job with it. Downloads are most reliable run
+locally against the cloud backends (`make cloud`).
 
 ### Chapters
 

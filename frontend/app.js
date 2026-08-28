@@ -33,6 +33,24 @@ const api = {
   async remove(id) {
     await fetch(`/api/media/${id}`, { method: "DELETE" });
   },
+  // Server-side download: the backend pulls the audio from a URL and registers
+  // it, so this returns a job to poll rather than a finished track.
+  async startDownload(url, playlist, tags) {
+    const res = await fetch("/api/download", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, playlist, tags }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || "could not start download");
+    return res.json();
+  },
+  async downloadJob(id) {
+    const res = await fetch(`/api/download/${id}`);
+    if (!res.ok) throw new Error("job not found");
+    return res.json();
+  },
+  async downloadJobs() {
+    return (await fetch("/api/downloads")).json();
+  },
   async getState(id) {
     return (await fetch(`/api/media/${id}/state`)).json();
   },
@@ -91,7 +109,15 @@ const els = {
   selectToggle: document.getElementById("select-toggle"),
   bulkBar: document.getElementById("bulk-bar"),
   fileInput: document.getElementById("file-input"),
+  downloadToggle: document.getElementById("download-toggle"),
+  downloadForm: document.getElementById("download-form"),
+  downloadUrl: document.getElementById("download-url"),
+  downloadTags: document.getElementById("download-tags"),
+  downloadPlaylist: document.getElementById("download-playlist"),
+  downloadStatus: document.getElementById("download-status"),
   player: document.getElementById("player"),
+  collapse: document.getElementById("player-collapse"),
+  context: document.getElementById("player-context"),
   art: document.getElementById("player-art"),
   title: document.getElementById("player-title"),
   artist: document.getElementById("player-artist"),
@@ -616,6 +642,7 @@ function startTrack(it, url, state = {}) {
   audio.src = url;
   els.title.textContent = it.title;
   els.artist.textContent = [it.artist, it.album].filter(Boolean).join(" — ");
+  els.context.textContent = it.album || it.artist || "Now playing";
   els.art.src = it.artwork_path ? `/api/media/${it.id}/artwork` : "";
   els.player.hidden = false;
 
@@ -679,6 +706,7 @@ async function loadTrack(idx, { resume = true, autoplay = true } = {}) {
   audio.src = playInfo.url;
   els.title.textContent = book.title;
   els.artist.textContent = `${chTitle} · ${idx + 1}/${book.tracks.length}`;
+  els.context.textContent = book.artist || "Audiobook";
   els.art.src = book.artwork_id ? `/api/media/${book.artwork_id}/artwork` : "";
   els.player.hidden = false;
 
@@ -960,6 +988,15 @@ els.seekbar.oninput = () => { if (audio.duration) audio.currentTime = (els.seekb
 els.seekbar.onchange = () => saveNow();
 els.speed.onchange = () => { audio.playbackRate = parseFloat(els.speed.value); saveNow(); };
 
+// Full-screen "now playing": tap the mini bar's art/metadata to expand, chevron
+// or Escape to collapse. The player element is the same in both states.
+function expandPlayer() { if (!els.player.hidden) els.player.classList.add("expanded"); }
+function collapsePlayer() { els.player.classList.remove("expanded"); }
+els.art.addEventListener("click", () => els.player.classList.contains("expanded") || expandPlayer());
+document.querySelector(".player-meta").addEventListener("click", expandPlayer);
+els.collapse.onclick = collapsePlayer;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") collapsePlayer(); });
+
 // Save when the tab is hidden or unloaded (spec §7).
 document.addEventListener("visibilitychange", () => { if (document.hidden) saveNow(); });
 window.addEventListener("pagehide", () => saveNow());
@@ -1158,6 +1195,80 @@ els.fileInput.onchange = (e) => { const f = [...e.target.files]; e.target.value 
 document.getElementById("folder-input").onchange =
   (e) => { const f = [...e.target.files]; e.target.value = ""; uploadFiles(f); };
 
+// ----- download from a URL ---------------------------------------------------
+// The server does the fetching (yt-dlp), so all the browser does here is start a
+// job and poll it. Polling covers jobs started in another tab too, and each
+// finished track shows up in the library as soon as the poll notices it.
+let dlTimer = null;
+let dlSeenAdded = new Map(); // job id -> tracks added last time we looked
+let dlFirstPoll = true; // the boot poll only seeds state; old summaries stay hidden
+
+function showDownloadForm(show) {
+  els.downloadForm.hidden = !show;
+  els.downloadToggle.classList.toggle("active", show);
+  if (show) els.downloadUrl.focus();
+}
+
+els.downloadToggle.onclick = () => showDownloadForm(els.downloadForm.hidden);
+document.getElementById("download-cancel").onclick = () => showDownloadForm(false);
+
+els.downloadForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const url = els.downloadUrl.value.trim();
+  if (!url) return;
+  const tags = els.downloadTags.value.split(",").map((t) => t.trim()).filter(Boolean);
+  try {
+    await api.startDownload(url, els.downloadPlaylist.checked, tags);
+    els.downloadUrl.value = "";
+    showDownloadForm(false);
+    pollDownloads();
+  } catch (err) {
+    toast(err.message);
+  }
+};
+
+function jobLine(job) {
+  if (job.status === "error") return `Download failed: ${job.message}`;
+  if (job.status === "done") return job.message;
+  const pos = job.total > 1 ? `(${job.index}/${job.total}) ` : "";
+  const pct = job.progress > 0 && job.progress < 1 ? ` ${Math.round(job.progress * 100)}%` : "";
+  return `${pos}${job.message}${pct}`;
+}
+
+async function pollDownloads() {
+  let jobs;
+  try {
+    jobs = await api.downloadJobs();
+  } catch {
+    return;
+  }
+
+  // A job that has added a track since the last poll means the library changed.
+  let changed = false;
+  for (const job of jobs) {
+    const added = job.added.length;
+    if (added !== (dlSeenAdded.get(job.id) ?? 0)) changed = true;
+    dlSeenAdded.set(job.id, added);
+  }
+
+  const active = jobs.filter((j) => j.status === "queued" || j.status === "running");
+  // Finished jobs linger server-side; only show one until the next poll retires it.
+  const recent = jobs.filter((j) => j.status !== "queued" && j.status !== "running").slice(-1);
+  const shown = active.length ? active : (dlFirstPoll ? [] : recent);
+  els.downloadStatus.textContent = shown.map(jobLine).join(" · ");
+
+  if (changed && !dlFirstPoll) refresh();
+  dlFirstPoll = false;
+
+  clearTimeout(dlTimer);
+  if (active.length) {
+    dlTimer = setTimeout(pollDownloads, 1500);
+  } else {
+    // Clear a finished job's summary after a beat so the strip doesn't stick.
+    dlTimer = setTimeout(() => { els.downloadStatus.textContent = ""; }, 8000);
+  }
+}
+
 // ----- drag and drop (files or whole folders) --------------------------------
 // Recurse dropped directory entries into a flat file list.
 async function filesFromDataTransfer(dt) {
@@ -1248,3 +1359,4 @@ function debounce(fn, ms) {
 
 // ----- boot ------------------------------------------------------------------
 refresh();
+pollDownloads(); // pick up any job still running from a previous visit
