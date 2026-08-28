@@ -9,9 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv, then dependencies from the locked set (no dev deps).
+# --compile-bytecode matters on Cloud Run: uv skips .pyc by default, so without
+# it every cold-started instance recompiles the whole dependency tree before
+# serving (measured ~1.7s vs ~0.35s to import backend.main).
 RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --compile-bytecode
 
 # App code.
 COPY backend/ backend/
