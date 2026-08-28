@@ -112,10 +112,20 @@ keeps whatever it got. Re-downloading a video already in the library skips it
 This is the one path where audio bytes pass through the app — a song-sized mp3 is
 small enough to buffer, unlike the audiobooks the upload flow is built for.
 
-Deployment caveats: YouTube often blocks Cloud Run's datacenter IPs (point
-`SPOTIME_YTDLP_COOKIES` at a `cookies.txt` to authenticate), and an instance that
-scales to zero takes any in-flight job with it. Downloads are most reliable run
-locally against the cloud backends (`make cloud`).
+**Run downloads locally, not on Cloud Run.** Confirmed on the deployed service:
+YouTube answers Cloud Run's datacenter IPs with "Sign in to confirm you're not a
+bot" for every video, so a 22-track playlist added nothing. The workflow is
+`make cloud` on your own machine — yt-dlp fetches from your home IP while writing
+to the same Firestore + GCS the deployed app reads, so downloads land in the
+production library and play from your phone. Verified end to end (record,
+cover, signed Range playback URL).
+
+The button still works in prod for anything that isn't bot-gated, and a failed
+job now reports the reason rather than a bare count. Getting YouTube itself
+working there would mean mounting a `cookies.txt` at `SPOTIME_YTDLP_COOKIES` —
+deliberately not done: the cookies expire within days-to-weeks and using a main
+Google account's cookies from a datacenter IP risks getting it flagged. A job
+in flight also dies when the instance scales to zero.
 
 ### Chapters
 

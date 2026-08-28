@@ -14,6 +14,7 @@ Caveats when deployed to Cloud Run: YouTube frequently blocks datacenter IPs
 instance that scales to zero takes any in-flight job with it.
 """
 import os
+import re
 import shutil
 import tempfile
 import threading
@@ -256,9 +257,28 @@ def _run(job_id: str) -> None:
 
 
 def _summary(job: dict) -> str:
+    failed = job.get("failed", [])
     parts = [f"Added {len(job.get('added', []))}"]
     if job.get("skipped"):
         parts.append(f"{len(job['skipped'])} already in library")
-    if job.get("failed"):
-        parts.append(f"{len(job['failed'])} failed")
-    return " · ".join(parts)
+    if failed:
+        parts.append(f"{len(failed)} failed")
+    line = " · ".join(parts)
+    # A bare count is useless when everything failed for one reason (the usual
+    # case: YouTube's bot check). Show that reason instead of making the user
+    # dig through logs.
+    if failed and not job.get("added"):
+        line += f" — {_reason(failed[0])}"
+    return line
+
+
+# yt-dlp errors arrive as "ERROR: [youtube] <id>: <what went wrong>. <links>".
+# Keep the middle bit: the first sentence of the actual message.
+_NOISE = re.compile(r"^ERROR:\s*(\[[^\]]+\]\s*)?([\w-]+:\s*)?")
+
+
+def _reason(failure: str) -> str:
+    msg = failure.split(": ", 1)[-1]          # drop the track title we prefixed
+    msg = _NOISE.sub("", msg).strip()
+    msg = msg.split(". See ")[0].split(" Use --cookies")[0].strip()
+    return msg[:200] or "unknown error"
