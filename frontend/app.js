@@ -76,6 +76,15 @@ const api = {
     if (!res.ok) throw new Error("could not save tags");
     return res.json();
   },
+  // Delete many tracks in one call; returns how many actually existed.
+  async bulkDelete(ids) {
+    const res = await fetch("/api/media/bulk-delete", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) throw new Error("bulk delete failed");
+    return res.json();
+  },
   // Add/remove tags across many tracks in one call (bulk tagging).
   async bulkTags(ids, { add = [], remove = [] }) {
     const res = await fetch("/api/media/tags/bulk", {
@@ -404,12 +413,19 @@ function renderBulkBar() {
   rmBtn.textContent = "Remove";
   rmBtn.onclick = () => applyBulk(input.value, "remove", input);
 
+  // "Remove" above strips tags; this deletes the tracks themselves, so it gets
+  // its own styling and sits apart from the tag controls.
+  const delBtn = document.createElement("button");
+  delBtn.className = "bulk-delete";
+  delBtn.textContent = "Delete";
+  delBtn.onclick = deleteSelected;
+
   const clear = document.createElement("button");
   clear.className = "bulk-clear";
   clear.textContent = "Clear";
   clear.onclick = () => { selectedIds.clear(); render(); };
 
-  els.bulkBar.append(count, input, addBtn, rmBtn, clear);
+  els.bulkBar.append(count, input, addBtn, rmBtn, delBtn, clear);
 }
 
 // Apply add/remove to the ticked tracks. Selection persists after, so you can
@@ -426,6 +442,35 @@ function applyBulk(value, op, input) {
       refresh(); // reloads library + re-renders pills/chips; keeps the selection
     })
     .catch(() => toast("Bulk tagging failed"));
+}
+
+// Delete every ticked track. Irreversible, so it names what is about to go and
+// asks first; the player is stopped if it is playing one of them.
+async function deleteSelected() {
+  const ids = [...selectedIds];
+  if (!ids.length) return;
+  const titles = ids
+    .map((id) => library.find((it) => it.id === id))
+    .filter(Boolean)
+    .map((it) => it.title);
+  const preview = titles.slice(0, 5).join("\n");
+  const more = titles.length > 5 ? `\n…and ${titles.length - 5} more` : "";
+  if (!confirm(`Delete ${ids.length} track(s)? This cannot be undone.\n\n${preview}${more}`)) return;
+
+  if (current && ids.includes(current.id)) {
+    audio.pause();
+    audio.src = "";
+    current = null;
+    els.player.hidden = true;
+  }
+  try {
+    const r = await api.bulkDelete(ids);
+    selectedIds.clear();
+    toast(`Deleted ${r.deleted} track(s)`);
+    refresh();
+  } catch {
+    toast("Bulk delete failed");
+  }
 }
 
 function section(label, cards) {

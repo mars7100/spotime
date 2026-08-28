@@ -103,6 +103,10 @@ class BulkTagsUpdate(BaseModel):
     remove: list[str] = []
 
 
+class BulkDelete(BaseModel):
+    ids: list[str]
+
+
 # Only audiobooks remember where you were. Music always starts at 0 — a song you
 # reopen (or come back to in a later session) plays from the top. Enforced here,
 # in the one place both the read and write paths pass through, so no stale music
@@ -272,16 +276,30 @@ def list_downloads():
     return downloader.list_jobs()
 
 
-@app.delete("/api/media/{media_id}", status_code=204)
-def delete_item(media_id: str):
+def _delete_one(media_id: str) -> bool:
+    """Drop a record and the blobs it owns. False when there was nothing to drop."""
     item = db.get_media(media_id)
     if not item:
-        raise HTTPException(404, "media not found")
+        return False
     storage.delete(item["storage_path"])
     if item.get("artwork_path"):
         storage.delete(item["artwork_path"])
     db.delete_media(media_id)
+    return True
+
+
+@app.delete("/api/media/{media_id}", status_code=204)
+def delete_item(media_id: str):
+    if not _delete_one(media_id):
+        raise HTTPException(404, "media not found")
     return Response(status_code=204)
+
+
+# Delete a whole selection in one request rather than N round-trips. Ids that no
+# longer exist are skipped, so a stale selection still clears what is really there.
+@app.post("/api/media/bulk-delete")
+def bulk_delete(req: BulkDelete):
+    return {"deleted": sum(_delete_one(mid) for mid in req.ids)}
 
 
 # ----- playback --------------------------------------------------------------

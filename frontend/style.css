@@ -110,6 +110,11 @@ h1 { font-size: 1.6rem; margin: 8px 0; }
   padding: 7px 14px; cursor: pointer; font-size: .85rem; font-weight: 600;
 }
 #bulk-bar button.bulk-remove { background: #e55; color: #fff; }
+/* Deletes tracks, not tags — outlined so it reads as the destructive one. */
+#bulk-bar button.bulk-delete {
+  background: transparent; color: #ff6b6b; border: 1px solid #ff6b6b;
+}
+#bulk-bar button.bulk-delete:hover { background: #ff6b6b; color: #fff; }
 #bulk-bar button.bulk-clear { background: var(--surface); color: var(--muted); font-weight: 400; }
 #upload-status { color: var(--muted); font-size: .85rem; min-height: 1em; }
 #library { margin: 8px 0; }
