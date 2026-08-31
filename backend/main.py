@@ -56,14 +56,23 @@ async def require_auth(request: Request, call_next):
     return JSONResponse({"detail": "unauthorized"}, status_code=401)
 
 
+# A build asset carries its content hash in its filename (index-B7xK2p1q.js), so
+# its URL changes whenever its bytes do and it can be cached forever. Everything
+# else static — above all the entry HTML that names those assets — has to
+# revalidate, or a deploy stays invisible until the cache expires.
+_HASHED_ASSET = re.compile(r"^/assets/.+-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$")
+
+
 @app.middleware("http")
-async def revalidate_static(request: Request, call_next):
-    # Static assets (frontend files) are served from "/"; tell the browser to
-    # revalidate every time so a new deploy is picked up on the next load instead
-    # of a stale cached copy sticking around. API responses are unaffected.
+async def cache_static(request: Request, call_next):
+    # Static files are served from "/". API responses are unaffected.
     response = await call_next(request)
-    if not request.url.path.startswith("/api"):
-        response.headers["Cache-Control"] = "no-cache"
+    path = request.url.path
+    if not path.startswith("/api"):
+        if _HASHED_ASSET.match(path):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "no-cache"
     return response
 
 
@@ -441,4 +450,24 @@ def stream(media_id: str, request: Request):
 
 # ----- frontend (mounted last so /api/* wins) --------------------------------
 
-app.mount("/", StaticFiles(directory=str(config.FRONTEND_DIR), html=True), name="frontend")
+# The vanilla client stays reachable while the React port is filled in ticket by
+# ticket, so the app is never half-usable. Ticket 14 removes this mount.
+if config.LEGACY_FRONTEND_DIR.is_dir():
+    app.mount(
+        "/legacy",
+        StaticFiles(directory=str(config.LEGACY_FRONTEND_DIR), html=True),
+        name="legacy",
+    )
+
+_frontend_dir = config.FRONTEND_DIR
+if not _frontend_dir.is_dir():
+    # No build yet (a fresh clone, or `make dev` before `npm install`). Fall back
+    # to the vanilla client rather than refusing to start.
+    print(
+        f"warning: no frontend build at {_frontend_dir} — serving the legacy client. "
+        f"Run `npm --prefix frontend install && npm --prefix frontend run build`.",
+        flush=True,
+    )
+    _frontend_dir = config.LEGACY_FRONTEND_DIR
+
+app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")

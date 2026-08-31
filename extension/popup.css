@@ -1,0 +1,58 @@
+/* Deliberately mirrors frontend/style.css so the popup reads as part of Spotime. */
+:root {
+  --bg: #121212; --surface: #1e1e1e; --surface-2: #2a2a2a;
+  --text: #f5f5f5; --muted: #9a9a9a; --accent: #1db954; --accent-2: #158f40;
+  --danger: #e05252;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; width: 320px;
+  font-family: -apple-system, system-ui, sans-serif;
+  background: var(--bg); color: var(--text); font-size: 13px;
+}
+#app { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+header { display: flex; align-items: center; gap: 8px; }
+h1 { font-size: 1rem; margin: 0; font-weight: 600; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+
+section { display: flex; flex-direction: column; gap: 10px; }
+/* An ID selector out-specifies the UA `[hidden]{display:none}` rule, so every
+   section that sets `display` needs an explicit hidden rule or it never hides. */
+#offline[hidden], #form[hidden], #job[hidden], #unsupported[hidden],
+#scope[hidden], #mix-warning[hidden] { display: none; }
+
+p { margin: 0; }
+#page-title { font-weight: 600; line-height: 1.35; }
+#page-url, #job-counts { color: var(--muted); font-size: 11.5px; word-break: break-all; }
+
+#scope { display: flex; flex-direction: column; gap: 6px; background: var(--surface); border-radius: 8px; padding: 10px; }
+#scope label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+#scope input { accent-color: var(--accent); margin: 0; }
+
+#mix-warning { color: var(--muted); font-size: 11.5px; font-style: italic; }
+
+#tags {
+  width: 100%; padding: 9px 12px; border-radius: 8px; border: none;
+  background: var(--surface-2); color: var(--text); font-size: 13px;
+}
+#tags::placeholder { color: var(--muted); }
+
+button {
+  border: none; border-radius: 20px; padding: 9px 16px; font-size: 13px;
+  font-weight: 600; cursor: pointer; background: var(--accent); color: #000;
+}
+button:hover { background: var(--accent-2); }
+button:disabled { opacity: .55; cursor: default; }
+button.secondary { background: var(--surface-2); color: var(--text); }
+button.secondary:hover { background: #3a3a3a; }
+
+.err-title { font-weight: 600; color: var(--danger); }
+.err-hint { color: var(--muted); line-height: 1.45; }
+.err-hint code, code {
+  background: var(--surface-2); border-radius: 4px; padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+#job-progress { height: 100%; width: 0; background: var(--accent); transition: width .25s ease; }

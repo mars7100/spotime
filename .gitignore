@@ -11,3 +11,8 @@ wheels/
 
 # Spotime local data (audio files + sqlite db)
 /data/
+
+# Frontend build
+node_modules/
+/frontend/dist/
+*.tsbuildinfo

@@ -1,0 +1,264 @@
+.library {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.library__note {
+  color: var(--muted);
+  padding: 24px 10px;
+}
+
+.library__note--error {
+  color: var(--danger);
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--faint);
+  padding: 0 10px 8px;
+  margin: 0;
+}
+
+.section-head .mono {
+  letter-spacing: 0;
+  font-size: 0.72rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* index · art · title block · tags · duration · overflow menu */
+.row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 42px minmax(0, 1fr) auto minmax(46px, auto) 28px;
+  align-items: center;
+  gap: 13px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  transition: background var(--fast) var(--ease);
+}
+
+.row:hover {
+  background: var(--surface);
+}
+
+.row-num {
+  font-size: 0.75rem;
+  color: var(--faint);
+  text-align: right;
+}
+
+.row:hover .row-num {
+  color: var(--text);
+}
+
+.art {
+  border-radius: 5px;
+  object-fit: cover;
+  background: var(--surface-2);
+  display: block;
+}
+
+.art--empty {
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+}
+
+.row-body {
+  min-width: 0;
+}
+
+.row-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.89rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-sub {
+  font-size: 0.77rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+/* Tags: quiet labels in their own column, never competing with the title. */
+.pills {
+  display: flex;
+  gap: 5px;
+}
+
+.pill {
+  font-size: 0.66rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 5px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.dur {
+  font-size: 0.75rem;
+  color: var(--faint);
+  text-align: right;
+}
+
+/* Reserved for the overflow menu (ticket 11) so the grid does not shift. */
+.row-menu-slot {
+  width: 28px;
+}
+
+/* The whole row is the play target. Stretched over the row rather than
+   wrapping it, so a menu button can sit above it later. */
+.row__hit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+/* …so the row's own content must not swallow the click. A control added to a
+   row later (the overflow menu, ticket 11) re-enables pointer events on itself
+   and raises its own stacking. */
+.row > *:not(.row__hit) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* The playing row is marked by an accent rail and an accent title — a
+   background tint alone is invisible against a hovered neighbour. */
+.row--playing::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.row--playing .row-title {
+  color: var(--accent);
+}
+
+/* The index cell becomes three bars while the active track plays. */
+.playing-mark {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.playing-mark i {
+  width: 2px;
+  height: 40%;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.playing-mark--on i {
+  animation: bar 900ms var(--ease) infinite;
+}
+
+.playing-mark--on i:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.playing-mark--on i:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes bar {
+  0%,
+  100% {
+    height: 30%;
+  }
+  50% {
+    height: 100%;
+  }
+}
+
+/* ---------- audiobooks: ported, not redesigned ---------- */
+
+.badge {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex: none;
+}
+
+.progress {
+  height: 3px;
+  background: var(--surface-2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+  max-width: 320px;
+}
+
+.progress__fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.resume {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ---------- empty library ---------- */
+
+.empty {
+  text-align: center;
+  padding: 72px 24px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.empty__title {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.6rem;
+  margin: 0 0 8px;
+}
+
+.empty__body {
+  margin: 0 auto;
+  max-width: 44ch;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 22px 42px minmax(0, 1fr) minmax(46px, auto) 28px;
+  }
+  .pills {
+    display: none;
+  }
+}

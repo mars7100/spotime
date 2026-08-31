@@ -1,0 +1,43 @@
+<meta charset="utf-8">
+<link rel="stylesheet" href="popup.css">
+<div id="app">
+  <header>
+    <span class="dot"></span>
+    <h1>Add to Spotime</h1>
+  </header>
+
+  <!-- Shown when the local server doesn't answer, or answers 401. -->
+  <section id="offline" hidden>
+    <p class="err-title"></p>
+    <p class="err-hint"></p>
+    <button id="retry" class="secondary">Try again</button>
+  </section>
+
+  <section id="form" hidden>
+    <p id="page-title"></p>
+    <p id="page-url"></p>
+
+    <div id="scope" hidden>
+      <label><input type="radio" name="scope" value="track" checked> Just this track</label>
+      <label><input type="radio" name="scope" value="playlist"> The whole playlist</label>
+    </div>
+    <p id="mix-warning" hidden>This is an auto-generated mix — only the current track will be added.</p>
+
+    <input id="tags" type="text" list="known-tags" placeholder="tags, comma separated (optional)" autocomplete="off">
+    <datalist id="known-tags"></datalist>
+
+    <button id="add">Add to Spotime</button>
+  </section>
+
+  <section id="job" hidden>
+    <p id="job-message"></p>
+    <div class="bar"><div id="job-progress"></div></div>
+    <p id="job-counts"></p>
+  </section>
+
+  <section id="unsupported" hidden>
+    <p class="err-title">Nothing to add here</p>
+    <p class="err-hint">Open a video or playlist page, or right-click a link and pick “Add to Spotime”.</p>
+  </section>
+</div>
+<script type="module" src="popup.js"></script>

@@ -1,0 +1,30 @@
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px 130px; /* clears the fixed player bar */
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.app__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 10px;
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.9rem;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.wordmark em {
+  font-style: italic;
+  color: var(--accent);
+}

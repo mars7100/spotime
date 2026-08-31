@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Add to Spotime",
+  "version": "1.0.0",
+  "description": "Send the current YouTube page (or any link) to your locally running Spotime library.",
+  "permissions": [
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://localhost:8080/*",
+    "http://127.0.0.1:8080/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Add to Spotime",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "128": "icons/icon128.png"
+  }
+}

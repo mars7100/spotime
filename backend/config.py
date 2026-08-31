@@ -13,7 +13,14 @@ AUDIO_DIR = DATA_DIR / "audio"
 COVERS_DIR = DATA_DIR / "covers"
 DB_PATH = DATA_DIR / "spotime.db"
 
-FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+# The built React client. Overridable so tests can serve a fixture tree instead.
+FRONTEND_DIR = Path(os.environ.get("SPOTIME_FRONTEND_DIR", _REPO_ROOT / "frontend" / "dist"))
+
+# The vanilla client, still served at /legacy while the port is in progress.
+# Retired by ticket 14.
+LEGACY_FRONTEND_DIR = _REPO_ROOT / "frontend" / "legacy"
 
 # Allowed upload extensions (matches the spec: music + audiobooks).
 ALLOWED_EXTENSIONS = {".mp3", ".m4a", ".m4b", ".aac", ".ogg", ".opus", ".flac", ".wav"}

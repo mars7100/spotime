@@ -1,0 +1,53 @@
+/* Design tokens — the warm-dark identity.
+   Spotime deliberately shares no colour with Spotify; the old palette was
+   literally Spotify's (#1db954 on #121212). Amber on warm near-black instead.
+   Values are the approved mockup's, verbatim. */
+
+:root {
+  color-scheme: dark;
+
+  /* Ground and raised surfaces */
+  --bg: #14110f;
+  --surface: #1e1a17;
+  --surface-2: #2a2420;
+  --line: #332c27;
+
+  /* Text */
+  --text: #f2ede7;
+  --muted: #9c9089;
+  --faint: #6b615b;
+
+  /* The single accent */
+  --accent: #e0913f;
+  --accent-2: #c4762a;
+  --accent-dim: rgba(224, 145, 63, 0.14);
+
+  /* Danger — reserved for destructive controls (bulk delete) */
+  --danger: #d4614a;
+
+  /* Three type roles, and only three. The serif is reserved for the wordmark
+     and the now-playing title; everything else is sans; times, durations and
+     counts are monospaced with tabular figures. */
+  --sans: "Instrument Sans", -apple-system, system-ui, sans-serif;
+  --serif: "Instrument Serif", Georgia, serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Icons are one set at one size and weight */
+  --icon-size: 18px;
+  --icon-stroke: 1.75;
+
+  --radius: 8px;
+  --radius-lg: 14px;
+
+  /* Motion is restrained, and switched off entirely below */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --fast: 120ms;
+  --slow: 260ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fast: 0ms;
+    --slow: 0ms;
+  }
+}

@@ -1,0 +1,276 @@
+/* Three columns: now-playing · transport (scrubber beneath) · secondary.
+   The old client crammed all of it into one row with a spanning seek bar. */
+.player {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.player__now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.player__meta {
+  min-width: 0;
+}
+
+/* The serif is reserved for the wordmark and this title, and nothing else. */
+.player__title {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player__sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player__transport {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ctl {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--muted);
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.ctl:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.ctl--on {
+  color: var(--accent);
+}
+
+.ctl--primary {
+  width: 40px;
+  height: 40px;
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.ctl--primary:hover {
+  background: var(--accent-2);
+  color: var(--bg);
+}
+
+.scrub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+}
+
+.scrub__time {
+  font-size: 0.7rem;
+  color: var(--faint);
+  flex: none;
+  min-width: 40px;
+}
+
+.scrub__time:last-child {
+  text-align: right;
+}
+
+.player__aux {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.aux-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.speed {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 0.72rem;
+}
+
+.player__error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--danger);
+}
+
+/* One range appearance for the scrubber and the volume slider. */
+.scrub__bar,
+.volume {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.scrub__bar {
+  flex: 1;
+  min-width: 0;
+}
+
+.volume {
+  width: 88px;
+}
+
+.scrub__bar::-webkit-slider-thumb,
+.volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.scrub__bar::-moz-range-thumb,
+.volume::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+@media (max-width: 780px) {
+  .player {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  }
+  .player__aux {
+    display: none;
+  }
+}
+
+/* Chapters sit above the bar rather than over the library: the transport stays
+   put and visible while you pick where to jump to. */
+.chapters {
+  /* Anchored to the bar, not to the viewport: the bar is itself fixed, so this
+     rides above it wherever it sits. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  z-index: 21;
+  width: min(560px, calc(100% - 32px));
+  margin: 0 auto 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.chapters__head {
+  position: sticky;
+  top: 0;
+  margin: 0;
+  padding: 12px 16px 8px;
+  background: var(--surface);
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.chapters__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px;
+}
+
+.chapter {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 16px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--fast) var(--ease);
+}
+
+.chapter:hover {
+  background: var(--surface-2);
+}
+
+.chapter--current {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.chapter__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chapter__time {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.chapter--current .chapter__time {
+  color: var(--accent);
+}
+
+/* Not an error — the end of a book is a normal thing to reach. */
+.player__notice {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}

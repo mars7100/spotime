@@ -1,3 +1,13 @@
+# The frontend is built here, in its own stage, so a deploy can never ship a
+# stale bundle. Nothing from this stage reaches the runtime image except dist/.
+FROM node:22-slim AS web
+WORKDIR /web
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -16,9 +26,12 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --compile-bytecode
 
-# App code.
+# App code. Only the built client ships — no sources, no node_modules. The
+# `nodejs` installed above is for yt-dlp's JS challenges and is never used to
+# build the frontend.
 COPY backend/ backend/
-COPY frontend/ frontend/
+COPY --from=web /web/dist/ frontend/dist/
+COPY frontend/legacy/ frontend/legacy/
 
 # Cloud Run injects $PORT (defaults to 8080). Bind to it.
 ENV PORT=8080

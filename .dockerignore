@@ -1,6 +1,10 @@
 .git
 .venv
 data/
+node_modules/
+frontend/dist/
+.scratch/
+tests/
 __pycache__/
 *.pyc
 .python-version
