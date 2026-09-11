@@ -106,6 +106,28 @@ describe("the queue", () => {
     expect(within(player()).getByText("Second")).toBeInTheDocument();
   });
 
+  it("hands over to the next song without waiting on the network", async () => {
+    // A locked phone throttles the page; a play() that comes after a fetch is
+    // refused. The next URL is fetched while this song plays, so the handoff
+    // on `ended` is synchronous — asserted here with no waitFor at all.
+    const [a, b] = [song({ title: "First" }), song({ title: "Second" })];
+    givenLibrary([a, b]);
+
+    render(<App />);
+    await playRow("First");
+    await waitFor(() => expect(loadedSrc()).toBe(streamUrl(a.id)));
+    await waitFor(() =>
+      expect(requests).toContainEqual(
+        expect.objectContaining({ method: "GET", path: `/api/media/${b.id}/play` }),
+      ),
+    );
+
+    endCurrentTrack();
+
+    expect(loadedSrc()).toBe(streamUrl(b.id));
+    expect(mediaElement().paused).toBe(false);
+  });
+
   it("stops at the end of the list rather than wrapping round", async () => {
     const last = song({ title: "Only" });
     givenLibrary([last]);
@@ -156,8 +178,8 @@ describe("the queue", () => {
     const [a, b, c] = [song({ title: "A" }), song({ title: "B" }), song({ title: "C" })];
     givenLibrary([a, b, c]);
 
-    // Hold the *first* request for B, so the click's hand-off is still in
-    // flight when A's event lands.
+    // Hold every request for B (the prefetch while A plays, and the click's
+    // own), so the click's hand-off is still in flight when A's event lands.
     let inFlight = false;
     let release = () => {};
     const held = new Promise<void>((resolve) => {
@@ -165,7 +187,7 @@ describe("the queue", () => {
     });
     server.use(
       http.get("/api/media/:id/play", async ({ params }) => {
-        if (params.id === b.id && !inFlight) {
+        if (params.id === b.id) {
           inFlight = true;
           await held;
         }

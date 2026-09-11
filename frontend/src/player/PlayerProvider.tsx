@@ -160,6 +160,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   /* Only the newest play may touch the element: clicking three rows quickly
      must leave the third one playing, not whichever request answered last. */
   const request = useRef(0);
+  /* The next song's play URL, fetched while this one plays. On `ended` the
+     handoff must be synchronous: a phone with its screen locked throttles the
+     page, and a `play()` that arrives after a network round-trip is refused.
+     ponytail: signed URLs live 60 min; a song longer than that refetches on a
+     failed load rather than being guarded against here. */
+  const prefetched = useRef<{ id: string; url: string } | null>(null);
   const endedRef = useRef<(item: MediaRecord) => void>(() => {});
 
   // Mirror the element's events into state. Registered once, for the life of
@@ -192,6 +198,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setQueue(buildQueue(source, { shuffle, pin: currentRef.current?.id ?? null }));
   }, [source, shuffle]);
+
+  // Whatever will follow the current song has its URL fetched now, and again
+  // whenever the queue changes underneath it. Songs only: a book never
+  // auto-advances to a song, and a chapter reads its saved state on entry.
+  useEffect(() => {
+    if (!current || keepsState(current)) return;
+    const next = stepFrom(queue, current.id, 1);
+    if (!next || keepsState(next) || prefetched.current?.id === next.id) return;
+    let live = true;
+    getPlayUrl(next.id)
+      .then(({ url }) => {
+        if (live) prefetched.current = { id: next.id, url };
+      })
+      .catch(() => {
+        /* The handoff then takes the slow path, as before. */
+      });
+    return () => {
+      live = false;
+    };
+  }, [current, queue]);
 
   /* Position saving. Audiobooks only — a song carries no position at all, so
      there is nothing to flush on pause, seek, tab-hide or track change. The
@@ -298,7 +324,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       /* Speed belongs to a book, not to the session: a song plays at 1× unless
          you change it, exactly as the vanilla client behaved. */
       let speedFor = 1;
-      try {
+      const ready = prefetched.current;
+      if (ready && ready.id === item.id && !keepsState(item)) {
+        // No await on this path — see `prefetched`.
+        url = ready.url;
+      } else try {
         /* The saved position is read fresh rather than taken from the library
            payload, which may be minutes old or written by another device. A
            song is never asked about: `keepsState` is the type-level half of the
