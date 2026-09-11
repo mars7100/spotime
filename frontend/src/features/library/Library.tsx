@@ -6,9 +6,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { bulkDelete, deleteMedia, setTags } from "../../api/client";
 import { CoverArt } from "../../ui/CoverArt";
+import { IconCheck } from "../../ui/icons";
 import { formatDuration, formatTime } from "../../lib/format";
 import type { AudiobookRecord, MediaRecord, MusicRecord } from "../../api/types";
 import { useNowPlaying, usePlayerCommands } from "../../player/PlayerProvider";
+import { BulkBar } from "./BulkBar";
 import { toCards, type Card } from "./cards";
 import { applyFilters, hasAnyTag, isNarrowed, NO_FILTERS, tagCounts, type Filters } from "./filters";
 import { LibraryFilters } from "./LibraryFilters";
@@ -25,11 +27,39 @@ const NOTHING: MediaRecord[] = [];
 /** Ties the kind tabs to the list they narrow. */
 const PANEL_ID = "library-panel";
 
+/** Select mode, as the rows see it. Absent when not selecting. */
+interface Sel {
+  has: (id: string) => boolean;
+  toggle: (id: string) => void;
+}
+
 export function Library() {
   const result = useLibrary();
   const { setQueueSource } = usePlayerCommands();
   const all = result.status === "ready" ? result.items : NOTHING;
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  // One value for "am I selecting" and "what is selected": null is not
+  // selecting, a Set (possibly empty) is. The two can never disagree.
+  const [selection, setSelection] = useState<Set<string> | null>(null);
+
+  // A deleted track cannot stay selected.
+  useEffect(() => {
+    setSelection((s) => {
+      if (!s) return s;
+      const kept = new Set([...s].filter((id) => all.some((i) => i.id === id)));
+      return kept.size === s.size ? s : kept;
+    });
+  }, [all]);
+
+  const sel: Sel | null = selection && {
+    has: (id) => selection.has(id),
+    toggle: (id) =>
+      setSelection((s) => {
+        const next = new Set(s);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+      }),
+  };
 
   // Search, tabs and tags narrow in one pass, so they compose rather than
   // fight. Memoised because the queue is fed from this list by identity.
@@ -69,7 +99,21 @@ export function Library() {
         suggestions={suggestions}
         showTags={hasAnyTag(all)}
         panelId={PANEL_ID}
+        selecting={selection != null}
+        onToggleSelect={
+          all.some((i) => i.media_type === "music")
+            ? () => setSelection((s) => (s ? null : new Set()))
+            : undefined
+        }
       />
+      {/* Drawn from the whole library, not the filtered view, so narrowing
+          the list after picking does not silently drop picks. */}
+      {selection && selection.size > 0 && (
+        <BulkBar
+          selected={all.filter((i) => selection.has(i.id)).map(({ id, title }) => ({ id, title }))}
+          onClear={() => setSelection(new Set())}
+        />
+      )}
       <div
         className="library"
         id={PANEL_ID}
@@ -77,13 +121,13 @@ export function Library() {
         aria-labelledby={`tab-${filters.kind}`}
         tabIndex={-1}
       >
-        <Sections cards={toCards(items)} narrowed={isNarrowed(filters)} />
+        <Sections cards={toCards(items)} narrowed={isNarrowed(filters)} sel={sel} />
       </div>
     </>
   );
 }
 
-function Sections({ cards, narrowed }: { cards: Card[]; narrowed: boolean }) {
+function Sections({ cards, narrowed, sel }: { cards: Card[]; narrowed: boolean; sel: Sel | null }) {
   // An empty library and a library you have filtered down to nothing are
   // different problems: one wants an upload prompt, the other wants to know
   // the filters did this.
@@ -93,40 +137,52 @@ function Sections({ cards, narrowed }: { cards: Card[]; narrowed: boolean }) {
 
   // "Recently added" is a claim about the whole library, so it is only honest
   // when nothing is narrowing it.
-  if (narrowed) return <Section title="Results" cards={cards} startIndex={1} />;
+  if (narrowed) return <Section title="Results" cards={cards} startIndex={1} sel={sel} />;
 
   // The API returns newest first, so the head of the list is what arrived last.
   const recent = cards.slice(0, RECENT_COUNT);
   const rest = cards.slice(RECENT_COUNT);
   return (
     <>
-      <Section title="Recently added" cards={recent} startIndex={1} />
-      {rest.length > 0 && <Section title="Library" cards={rest} startIndex={recent.length + 1} />}
+      <Section title="Recently added" cards={recent} startIndex={1} sel={sel} />
+      {rest.length > 0 && (
+        <Section title="Library" cards={rest} startIndex={recent.length + 1} sel={sel} />
+      )}
     </>
   );
 }
 
-function Section({ title, cards, startIndex }: { title: string; cards: Card[]; startIndex: number }) {
+function Section({
+  title,
+  cards,
+  startIndex,
+  sel,
+}: {
+  title: string;
+  cards: Card[];
+  startIndex: number;
+  sel: Sel | null;
+}) {
   return (
     <section>
       <h2 className="section-head">
         {title} <span className="mono">{cards.length}</span>
       </h2>
-      <ul className="list">
+      <ul className={`list${sel ? " list--selecting" : ""}`}>
         {cards.map((card, i) => (
-          <Row key={card.id} card={card} index={startIndex + i} />
+          <Row key={card.id} card={card} index={startIndex + i} sel={sel} />
         ))}
       </ul>
     </section>
   );
 }
 
-function Row({ card, index }: { card: Card; index: number }) {
-  if (card.kind === "book") return <BookRow card={card} index={index} />;
+function Row({ card, index, sel }: { card: Card; index: number; sel: Sel | null }) {
+  if (card.kind === "book") return <BookRow card={card} index={index} inert={sel != null} />;
   return card.item.media_type === "music" ? (
-    <TrackRow item={card.item} index={index} />
+    <TrackRow item={card.item} index={index} sel={sel} />
   ) : (
-    <AudiobookRow item={card.item} index={index} />
+    <AudiobookRow item={card.item} index={index} inert={sel != null} />
   );
 }
 
@@ -161,8 +217,26 @@ function PlayHit({ label, onPlay }: { label: string; onPlay: () => void }) {
   );
 }
 
-/** The index becomes the playing indicator for the active track. */
-function RowIndex({ index, active, playing }: { index: number; active: boolean; playing: boolean }) {
+/** The index becomes the playing indicator for the active track, or a check
+    for a selected one. */
+function RowIndex({
+  index,
+  active,
+  playing,
+  selected = false,
+}: {
+  index: number;
+  active: boolean;
+  playing: boolean;
+  selected?: boolean;
+}) {
+  if (selected) {
+    return (
+      <div className="row-num row-num--check">
+        <IconCheck size={16} />
+      </div>
+    );
+  }
   if (!active) return <div className="row-num mono">{index}</div>;
   return (
     <div className={`row-num playing-mark${playing ? " playing-mark--on" : ""}`} aria-hidden>
@@ -173,15 +247,28 @@ function RowIndex({ index, active, playing }: { index: number; active: boolean; 
   );
 }
 
-function TrackRow({ item, index }: { item: MusicRecord; index: number }) {
+function TrackRow({ item, index, sel }: { item: MusicRecord; index: number; sel: Sel | null }) {
   const { play } = usePlayerCommands();
   const now = useNowPlaying();
   const active = now.id === item.id;
+  const selected = sel?.has(item.id) ?? false;
 
   return (
-    <li className={`row${active ? " row--playing" : ""}`}>
-      <PlayHit label={item.title} onPlay={() => play(item)} />
-      <RowIndex index={index} active={active} playing={now.playing} />
+    <li className={`row${active ? " row--playing" : ""}${selected ? " row--selected" : ""}`}>
+      {/* In select mode the stretched hit is the checkbox, so clicking the row
+          picks it instead of playing it. */}
+      {sel ? (
+        <input
+          type="checkbox"
+          className="row__hit row__check"
+          aria-label={`Select ${item.title}`}
+          checked={selected}
+          onChange={() => sel.toggle(item.id)}
+        />
+      ) : (
+        <PlayHit label={item.title} onPlay={() => play(item)} />
+      )}
+      <RowIndex index={index} active={active} playing={now.playing} selected={selected} />
       <CoverArt mediaId={item.artwork_path ? item.id : null} kind="music" />
       <div className="row-body">
         <div className="row-title">{item.title}</div>
@@ -195,17 +282,22 @@ function TrackRow({ item, index }: { item: MusicRecord; index: number }) {
         ))}
       </div>
       <div className="dur mono">{formatDuration(item.duration_seconds)}</div>
-      <RowMenu
-        label={item.title}
-        onEditTags={() => editTags(item)}
-        onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
-      />
+      {sel ? (
+        <div />
+      ) : (
+        <RowMenu
+          label={item.title}
+          onEditTags={() => editTags(item)}
+          onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
+        />
+      )}
     </li>
   );
 }
 
 /** A single-file audiobook: one record, its own saved position. */
-function AudiobookRow({ item, index }: { item: AudiobookRecord; index: number }) {
+/** `inert`: select mode is on, and books cannot be tagged, so this one dims out. */
+function AudiobookRow({ item, index, inert }: { item: AudiobookRecord; index: number; inert: boolean }) {
   const { play } = usePlayerCommands();
   const now = useNowPlaying();
   const active = now.id === item.id;
@@ -217,8 +309,8 @@ function AudiobookRow({ item, index }: { item: AudiobookRecord; index: number })
   const resumable = state != null && state.position_seconds > 5;
 
   return (
-    <li className={`row row--book${active ? " row--playing" : ""}`}>
-      <PlayHit label={item.title} onPlay={() => play(item)} />
+    <li className={`row row--book${active ? " row--playing" : ""}${inert ? " row--inert" : ""}`}>
+      {!inert && <PlayHit label={item.title} onPlay={() => play(item)} />}
       <RowIndex index={index} active={active} playing={now.playing} />
       <CoverArt mediaId={item.artwork_path ? item.id : null} kind="audiobook" />
       <div className="row-body">
@@ -242,10 +334,14 @@ function AudiobookRow({ item, index }: { item: AudiobookRecord; index: number })
       </div>
       <div className="pills" />
       <div className="dur mono">{formatDuration(item.duration_seconds)}</div>
-      <RowMenu
-        label={item.title}
-        onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
-      />
+      {inert ? (
+        <div />
+      ) : (
+        <RowMenu
+          label={item.title}
+          onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
+        />
+      )}
     </li>
   );
 }
@@ -254,9 +350,11 @@ function AudiobookRow({ item, index }: { item: AudiobookRecord; index: number })
 function BookRow({
   card,
   index,
+  inert,
 }: {
   card: Extract<Card, { kind: "book" }>;
   index: number;
+  inert: boolean;
 }) {
   const { playBook } = usePlayerCommands();
   const now = useNowPlaying();
@@ -265,10 +363,12 @@ function BookRow({
   const total = card.tracks.reduce((sum, t) => sum + (t.duration_seconds ?? 0), 0);
 
   return (
-    <li className={`row row--book${active ? " row--playing" : ""}`}>
+    <li className={`row row--book${active ? " row--playing" : ""}${inert ? " row--inert" : ""}`}>
       {/* The book opens where you left it — its first unfinished chapter — and
           runs on from there, chapter to chapter. */}
-      <PlayHit label={card.title} onPlay={() => playBook(card, progress.resumeIndex)} />
+      {!inert && (
+        <PlayHit label={card.title} onPlay={() => playBook(card, progress.resumeIndex)} />
+      )}
       <RowIndex index={index} active={active} playing={now.playing} />
       <CoverArt mediaId={card.artworkId} kind="audiobook" />
       <div className="row-body">
@@ -295,12 +395,16 @@ function BookRow({
       </div>
       <div className="pills" />
       <div className="dur mono">{formatDuration(total || null)}</div>
-      <RowMenu
-        label={card.title}
-        onDelete={() =>
-          confirmDelete(card.title, () => bulkDelete(card.tracks.map((t) => t.id)))
-        }
-      />
+      {inert ? (
+        <div />
+      ) : (
+        <RowMenu
+          label={card.title}
+          onDelete={() =>
+            confirmDelete(card.title, () => bulkDelete(card.tracks.map((t) => t.id)))
+          }
+        />
+      )}
     </li>
   );
 }

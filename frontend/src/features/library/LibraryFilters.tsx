@@ -25,6 +25,9 @@ export interface LibraryFiltersProps {
   showTags: boolean;
   /** Ties the kind tabs to the list they narrow. */
   panelId: string;
+  selecting?: boolean;
+  /** Absent when there is nothing selectable (no music) — the toggle is not shown. */
+  onToggleSelect?: () => void;
 }
 
 export function LibraryFilters({
@@ -33,6 +36,8 @@ export function LibraryFilters({
   suggestions,
   showTags,
   panelId,
+  selecting = false,
+  onToggleSelect,
 }: LibraryFiltersProps) {
   return (
     <div className="filters">
@@ -43,6 +48,16 @@ export function LibraryFilters({
           onChange={(kind) => onChange({ ...filters, kind })}
           panelId={panelId}
         />
+        {onToggleSelect && (
+          <button
+            type="button"
+            className="select-toggle"
+            aria-pressed={selecting}
+            onClick={onToggleSelect}
+          >
+            {selecting ? "Done" : "Select"}
+          </button>
+        )}
       </div>
       {showTags && (
         <TagFilter

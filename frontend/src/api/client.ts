@@ -87,6 +87,17 @@ export const deleteMedia = (id: string): Promise<void> =>
 export const bulkDelete = (ids: string[]): Promise<{ deleted: number }> =>
   request("/api/media/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) });
 
+/** Per track: the `remove` set is dropped, then `add` appended. Which tracks
+    make up the selection is the caller's concern. */
+export const bulkTags = (
+  ids: string[],
+  change: { add?: string[]; remove?: string[] },
+): Promise<{ updated: number }> =>
+  request("/api/media/tags/bulk", {
+    method: "POST",
+    body: JSON.stringify({ ids, add: change.add ?? [], remove: change.remove ?? [] }),
+  });
+
 /* ---------------------------------------------------------------------------
    Uploads. Three steps, and the middle one is not here: the bytes go straight
    to storage from the browser, so only the first and third talk to our server.

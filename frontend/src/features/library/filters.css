@@ -104,6 +104,36 @@
   color: var(--bg);
 }
 
+/* ---------- select mode toggle ---------- */
+
+/* A lone tab: same shape, pressed state in the accent. */
+.select-toggle {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+  transition:
+    color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+
+.select-toggle:hover {
+  color: var(--text);
+}
+
+.select-toggle[aria-pressed="true"] {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ---------- tag filter ---------- */
 
 .tagfilter {

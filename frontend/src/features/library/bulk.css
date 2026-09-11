@@ -1,0 +1,82 @@
+/* The bulk action bar. Sits under the filters, in the same quiet register;
+   only the delete button is allowed to look dangerous. */
+
+.bulk {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 10px 12px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.bulk__count {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+.bulk__input {
+  flex: 1 1 180px;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  transition: border-color var(--fast) var(--ease);
+}
+
+.bulk__input::placeholder {
+  color: var(--faint);
+}
+
+.bulk__input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.bulk__btn {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+
+.bulk__btn:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.bulk__btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Deletes tracks, not tags — set apart from the tag controls and coloured so
+   it is never hit by reflex. */
+.bulk__btn--danger {
+  margin-left: auto;
+  color: var(--danger);
+  border-color: rgb(212 97 74 / 40%);
+}
+
+.bulk__btn--danger:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
