@@ -206,10 +206,11 @@ function editTags(item: MusicRecord) {
     .catch(() => toast("Could not save tags"));
 }
 
-function confirmDelete(title: string, remove: () => Promise<unknown>) {
+function confirmDelete(title: string, ids: string[], forget: (ids: string[]) => void) {
   if (!window.confirm(`Delete "${title}"?`)) return;
-  remove()
+  (ids.length === 1 ? deleteMedia(ids[0]) : bulkDelete(ids))
     .then(() => {
+      forget(ids);
       toast("Deleted");
       notifyLibraryChanged();
     })
@@ -256,7 +257,7 @@ function RowIndex({
 }
 
 function TrackRow({ item, index, sel }: { item: MusicRecord; index: number; sel: Sel | null }) {
-  const { play } = usePlayerCommands();
+  const { play, forget } = usePlayerCommands();
   const now = useNowPlaying();
   const active = now.id === item.id;
   const selected = sel?.has(item.id) ?? false;
@@ -296,7 +297,7 @@ function TrackRow({ item, index, sel }: { item: MusicRecord; index: number; sel:
         <RowMenu
           label={item.title}
           onEditTags={() => editTags(item)}
-          onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
+          onDelete={() => confirmDelete(item.title, [item.id], forget)}
         />
       )}
     </li>
@@ -306,7 +307,7 @@ function TrackRow({ item, index, sel }: { item: MusicRecord; index: number; sel:
 /** A single-file audiobook: one record, its own saved position. */
 /** `inert`: select mode is on, and books cannot be tagged, so this one dims out. */
 function AudiobookRow({ item, index, inert }: { item: AudiobookRecord; index: number; inert: boolean }) {
-  const { play } = usePlayerCommands();
+  const { play, forget } = usePlayerCommands();
   const now = useNowPlaying();
   const active = now.id === item.id;
   const state = item.state;
@@ -347,7 +348,7 @@ function AudiobookRow({ item, index, inert }: { item: AudiobookRecord; index: nu
       ) : (
         <RowMenu
           label={item.title}
-          onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
+          onDelete={() => confirmDelete(item.title, [item.id], forget)}
         />
       )}
     </li>
@@ -364,7 +365,7 @@ function BookRow({
   index: number;
   inert: boolean;
 }) {
-  const { playBook } = usePlayerCommands();
+  const { playBook, forget } = usePlayerCommands();
   const now = useNowPlaying();
   const active = card.tracks.some((t) => t.id === now.id);
   const { progress } = card;
@@ -408,9 +409,7 @@ function BookRow({
       ) : (
         <RowMenu
           label={card.title}
-          onDelete={() =>
-            confirmDelete(card.title, () => bulkDelete(card.tracks.map((t) => t.id)))
-          }
+          onDelete={() => confirmDelete(card.title, card.tracks.map((t) => t.id), forget)}
         />
       )}
     </li>

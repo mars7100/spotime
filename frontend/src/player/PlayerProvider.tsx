@@ -79,6 +79,9 @@ export interface PlayerCommands {
   toggleShuffle(): void;
   /** The library hands over what is in view; the queue is derived from it. */
   setQueueSource(items: MediaRecord[]): void;
+  /** These records were deleted. If one of them is playing, playback stops —
+      the bytes may still be cached, but the thing they belonged to is gone. */
+  forget(ids: string[]): void;
 }
 
 export interface NowPlaying {
@@ -386,6 +389,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
   endedRef.current = finished;
 
+  const forget = useCallback((ids: string[]) => {
+    const item = currentRef.current;
+    if (!item || !ids.includes(item.id)) return;
+    // Cleared before the pause so its save handler has nothing to write for a
+    // record that no longer exists; the bumped token orphans any play in flight.
+    currentRef.current = null;
+    request.current += 1;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    setCurrent(null);
+    setBook(null);
+    setNotice(null);
+    setPosition(0);
+    setDuration(0);
+  }, []);
+
   const commands = useMemo<PlayerCommands>(
     () => ({
       play: (item) => void play(item),
@@ -460,8 +480,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           return !on;
         }),
       setQueueSource: setSource,
+      forget,
     }),
-    [play, saveNow],
+    [play, saveNow, forget],
   );
 
   const state = useMemo<PlayerState>(

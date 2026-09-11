@@ -4,6 +4,7 @@
    the toast. */
 import { useState } from "react";
 import { bulkDelete, bulkTags } from "../../api/client";
+import { usePlayerCommands } from "../../player/PlayerProvider";
 import { notifyLibraryChanged } from "./refresh";
 import { toast } from "../../ui/toast";
 import "./bulk.css";
@@ -18,6 +19,7 @@ export function BulkBar({
   selected: { id: string; title: string }[];
   onClear: () => void;
 }) {
+  const { forget } = usePlayerCommands();
   const [input, setInput] = useState("");
   const ids = selected.map((s) => s.id);
   const tags = parseTags(input);
@@ -38,6 +40,7 @@ export function BulkBar({
     if (!window.confirm(`Delete ${n} track(s)? This cannot be undone.\n\n${preview}${more}`)) return;
     bulkDelete(ids)
       .then((r) => {
+        forget(ids);
         toast(`Deleted ${r.deleted} track(s)`);
         onClear();
         notifyLibraryChanged();

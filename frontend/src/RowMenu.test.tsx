@@ -114,4 +114,23 @@ describe("row menu", () => {
 
     expect(screen.getAllByRole("menu")).toHaveLength(1);
   });
+
+  it("stops playback when the playing track is deleted", async () => {
+    const tadow = song({ title: "Tadow" });
+    givenMutableLibrary([song({ title: "Nightcall" }), tadow]);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<App />);
+    await screen.findByText("Tadow");
+    await userEvent.click(screen.getByRole("button", { name: "Play Tadow" }));
+    await screen.findByRole("contentinfo", { name: "Player" });
+
+    const menu = await openMenu("Tadow");
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "Delete" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("contentinfo", { name: "Player" })).not.toBeInTheDocument(),
+    );
+    expect(mediaElement().paused).toBe(true);
+    expect(mediaElement().getAttribute("src")).toBeNull();
+  });
 });
