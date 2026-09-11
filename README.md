@@ -29,7 +29,9 @@ make dev-firestore            # Firestore for state, local disk for audio
 make cloud                    # Firestore + GCS (full cloud, like production)
 ```
 
-Then open http://localhost:8080
+Then open http://localhost:5173 (Vite, with hot reload; `/api` is proxied to uvicorn on :8080).
+`make build` writes the client to `frontend/dist`; `make run` builds and serves everything from
+uvicorn on :8080, as in production.
 
 ### Firestore (Phase 2)
 
@@ -70,7 +72,9 @@ backend/
   downloader.py Server-side yt-dlp download jobs (URL -> library)
   config.py     Paths / settings (env-overridable)
 frontend/
-  index.html, app.js, style.css   single-page vanilla JS client
+  src/          React + TypeScript client (Vite); tests alongside in *.test.tsx
+  public/       copied verbatim into the build (login.html)
+  dist/         built output, served by the backend at /
 data/           gitignored — audio files + spotime.db
 ```
 

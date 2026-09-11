@@ -10,8 +10,6 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": "http://localhost:8080",
-      // The vanilla client, until ticket 14 retires it.
-      "/legacy": "http://localhost:8080",
     },
   },
   test: {

@@ -456,24 +456,14 @@ def stream(media_id: str, request: Request):
 
 # ----- frontend (mounted last so /api/* wins) --------------------------------
 
-# The vanilla client stays reachable while the React port is filled in ticket by
-# ticket, so the app is never half-usable. Ticket 14 removes this mount.
-if config.LEGACY_FRONTEND_DIR.is_dir():
-    app.mount(
-        "/legacy",
-        StaticFiles(directory=str(config.LEGACY_FRONTEND_DIR), html=True),
-        name="legacy",
-    )
-
-_frontend_dir = config.FRONTEND_DIR
-if not _frontend_dir.is_dir():
-    # No build yet (a fresh clone, or `make dev` before `npm install`). Fall back
-    # to the vanilla client rather than refusing to start.
+# No build yet (a fresh clone, or `make dev` before `npm install`): the API still
+# serves, and Vite serves the client on :5173 in dev, so warn rather than refuse
+# to start. In production the image always carries a build.
+if config.FRONTEND_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=str(config.FRONTEND_DIR), html=True), name="frontend")
+else:
     print(
-        f"warning: no frontend build at {_frontend_dir} — serving the legacy client. "
+        f"warning: no frontend build at {config.FRONTEND_DIR} — serving the API only. "
         f"Run `npm --prefix frontend install && npm --prefix frontend run build`.",
         flush=True,
     )
-    _frontend_dir = config.LEGACY_FRONTEND_DIR
-
-app.mount("/", StaticFiles(directory=str(_frontend_dir), html=True), name="frontend")

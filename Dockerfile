@@ -31,7 +31,6 @@ RUN uv sync --frozen --no-dev --compile-bytecode
 # build the frontend.
 COPY backend/ backend/
 COPY --from=web /web/dist/ frontend/dist/
-COPY frontend/legacy/ frontend/legacy/
 
 # Cloud Run injects $PORT (defaults to 8080). Bind to it.
 ENV PORT=8080

@@ -19,7 +19,7 @@ make reset          # DESTRUCTIVE: rm -rf data/ (wipes local audio + spotime.db)
 ```
 
 The dev targets run **two** processes under one `trap 'kill 0'`: uvicorn on `:8080` and Vite on
-`:5173`. Browse **5173** — Vite proxies `/api` (and `/legacy`) to uvicorn, so the browser sees one
+`:5173`. Browse **5173** — Vite proxies `/api` to uvicorn, so the browser sees one
 origin exactly as in production, and HMR works. `:8080` alone serves the last build, not your edits.
 
 Python dependencies are managed with **uv** (`uv sync`, `uv run …`), Python ≥3.12.10; frontend
@@ -54,11 +54,11 @@ These two axes are independent (hence `dev` / `dev-firestore` / `cloud` mix them
 
 **Chapters** (`backend/chapters.py`): on register, audiobooks get chapters via `ffprobe`, which range-reads only the container metadata (not the whole file) from a local path or the GCS signed URL. Stored on the media record as `chapters` (list of `{title, start_seconds}`); shown as a click-to-seek list.
 
-**The frontend is mid-port to React.** `frontend/` is a Vite + React + TypeScript project
-(`src/`, no router, no SSR) building to `frontend/dist`, which `config.FRONTEND_DIR` serves at `/`.
-The old vanilla client lives on at `frontend/legacy/`, mounted at `/legacy` and fully functional
-until the port lands — spec and tickets in `.scratch/react-frontend-port/`. If no build exists,
-the server falls back to the legacy client with a warning rather than refusing to start.
+**The frontend is a Vite + React + TypeScript app** in `frontend/` (`src/`, no router, no SSR),
+building to `frontend/dist`, which `config.FRONTEND_DIR` serves at `/`. Frontend tests are
+Vitest + Testing Library with HTTP faked by msw at the network boundary (`npm test` in
+`frontend/`); spec and tickets for the port that produced it are in `.scratch/react-frontend-port/`.
+If no build exists, the server serves the API only and warns — in dev Vite serves the UI anyway.
 
 `frontend/public/login.html` is copied verbatim into the build output, so it stays framework-free
 at its current path and gates access via an `SPOTIME_PASSWORD` env var (cookie holds
