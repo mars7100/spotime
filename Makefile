@@ -53,7 +53,12 @@ test-web: ## Run the frontend tests only
 	npm --prefix frontend run test
 
 deploy: ## Build + deploy to Cloud Run (env vars already set on the service)
-	gcloud run deploy spotime --source . --project=$(PROJECT) --region=us-central1
+# The startup probe is pinned here, not left to Cloud Run's default. That default
+# is one TCP attempt with a 240s deadline, so a single slow cold start kills the
+# instance outright ("The instance was not started") and callers get 500s with no
+# instance to serve them. Many short attempts tolerate a slow boot instead.
+	gcloud run deploy spotime --source . --project=$(PROJECT) --region=us-central1 \
+		--startup-probe=tcpSocket.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=20
 
 clean: ## Remove Python caches
 	find . -type d -name __pycache__ -prune -exec rm -rf {} +

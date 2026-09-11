@@ -30,3 +30,24 @@ def test_api_responses_are_untouched(client):
     r = client.get("/api/media")
     assert r.status_code == 200
     assert "cache-control" not in r.headers
+
+
+def test_artwork_is_cached_forever(client):
+    # Cover art is the one /api response that carries a cache header. It is
+    # written once at register and never replaced, and the library fans out one
+    # request per row — uncached, that stampede is what takes the service down.
+    import base64
+
+    up = client.post("/api/media/upload-url",
+                     json={"filename": "cover.mp3", "content_type": "audio/mpeg"}).json()
+    assert client.put(up["url"], content=b"not really audio").status_code == 200
+    media = client.post("/api/media/register", json={
+        "id": up["id"], "filename": "cover.mp3",
+        "cover_base64": base64.b64encode(b"jpeg-bytes").decode(),
+    })
+    assert media.status_code == 201, media.text
+
+    r = client.get(f"/api/media/{up['id']}/artwork")
+    assert r.status_code == 200
+    assert r.content == b"jpeg-bytes"
+    assert r.headers["cache-control"] == "public, max-age=31536000, immutable"

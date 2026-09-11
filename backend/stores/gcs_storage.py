@@ -16,6 +16,7 @@ from typing import Optional
 
 from google.auth import default, impersonated_credentials
 from google.cloud import storage as gcs
+from google.cloud.exceptions import NotFound
 
 # Impersonation for signing goes through IAM SignBlob, which needs a broad scope.
 SIGN_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -67,8 +68,14 @@ class GcsStorage:
             blob.delete()
 
     def read_bytes(self, key: str) -> Optional[bytes]:
-        blob = self.bucket.blob(key)
-        return blob.download_as_bytes() if blob.exists() else None
+        # One round-trip, not two. A missing blob raises NotFound, which is the
+        # same answer an exists() probe would have cost a second GCS call to get
+        # — and cover art fans out one call per library row, so the probe was
+        # doubling the load that saturates the request threadpool.
+        try:
+            return self.bucket.blob(key).download_as_bytes()
+        except NotFound:
+            return None
 
     def exists(self, key: str) -> bool:
         return self.bucket.blob(key).exists()

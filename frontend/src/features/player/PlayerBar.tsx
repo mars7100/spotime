@@ -1,15 +1,21 @@
-/* The player bar: three columns — now-playing metadata, transport with the
-   scrubber beneath it, and secondary controls. Every control is a vector icon;
-   the old client's emoji and box-drawing glyphs are gone.
+/* The player: three columns — now-playing metadata, transport with the scrubber
+   beneath it, and secondary controls. Every control is a vector icon; the old
+   client's emoji and box-drawing glyphs are gone.
 
    This renders *from* the element and sends commands *to* it. It owns no
-   playback state, so ticket 08's full-screen view is this same markup re-flowed
-   rather than a second player. */
+   playback state.
+
+   The full-screen now-playing view is this same footer re-flowed — one class,
+   one set of controls, one React element in one place in the tree, so the node
+   is never unmounted and there is no second player that could disagree with
+   this one about what is playing. */
+import { useEffect, useState } from "react";
 import { Chapters } from "./Chapters";
 import { CoverArt } from "../../ui/CoverArt";
 import { formatTime } from "../../lib/format";
 import {
   IconBack15,
+  IconCollapse,
   IconForward30,
   IconNext,
   IconPause,
@@ -26,11 +32,26 @@ import "./player.css";
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2];
 
+/** The art fills the view rather than a fixed box, so it is large on a desktop
+    and does not overflow a phone. */
+const HERO_ART = "min(70vw, 340px)";
+
 export function PlayerBar() {
   const { current, playing, position, duration, speed, volume, shuffle, error, book, notice } =
     usePlayerState();
   const { toggle, seek, nudge, next, previous, setSpeed, setVolume, toggleShuffle } =
     usePlayerCommands();
+  const [expanded, setExpanded] = useState(false);
+
+  // Escape collapses, the way it dismisses anything that covers the page.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   if (!current) return null;
 
@@ -50,18 +71,37 @@ export function PlayerBar() {
     : [current.artist, current.album].filter(Boolean).join(" — ");
 
   return (
-    <footer className="player" aria-label="Player">
-      <div className="player__now">
+    <footer className={`player${expanded ? " player--full" : ""}`} aria-label="Player">
+      {expanded && (
+        <button
+          type="button"
+          className="ctl player__collapse"
+          aria-label="Collapse player"
+          onClick={() => setExpanded(false)}
+        >
+          <IconCollapse />
+        </button>
+      )}
+
+      {/* The art and metadata are the way into the full-screen view, and the way
+          back out of it — the same gesture both directions. */}
+      <button
+        type="button"
+        className="player__now"
+        aria-expanded={expanded}
+        aria-label={expanded ? "Collapse full-screen player" : "Expand to full screen"}
+        onClick={() => setExpanded((was) => !was)}
+      >
         <CoverArt
           mediaId={book ? book.artworkId : current.artwork_path ? current.id : null}
           kind={current.media_type}
-          size={52}
+          size={expanded ? HERO_ART : 52}
         />
         <div className="player__meta">
           <div className="player__title">{title}</div>
           <div className="player__sub">{subtitle || "Unknown"}</div>
         </div>
-      </div>
+      </button>
 
       <div className="player__transport">
         <div className="transport">
@@ -84,7 +124,11 @@ export function PlayerBar() {
             aria-label={playing ? "Pause" : "Play"}
             onClick={toggle}
           >
-            {playing ? <IconPause size={20} /> : <IconPlay size={20} />}
+            {playing ? (
+              <IconPause size={expanded ? 26 : 20} />
+            ) : (
+              <IconPlay size={expanded ? 26 : 20} />
+            )}
           </button>
           {isBook && (
             <button

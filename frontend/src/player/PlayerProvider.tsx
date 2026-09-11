@@ -25,6 +25,7 @@ import {
   chaptersOfFile,
   type ChapterEntry,
 } from "./chapters";
+import { useMediaSession } from "./mediaSession";
 import { buildQueue, stepFrom } from "./queue";
 
 /** A folder book, as the library hands it over: enough to play it and to label
@@ -504,6 +505,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     () => ({ id: current?.id ?? null, playing }),
     [current?.id, playing],
   );
+
+  /* The lock screen, the keyboard's play key, the macOS Now Playing widget.
+     It reads the same mirrored state the bar renders from and issues the same
+     commands the bar's buttons do, so an OS pause and a clicked pause are one
+     action rather than two that have to be kept in agreement. */
+  useMediaSession({ current, book, playing, position, duration, speed }, commands);
 
   return (
     <CommandsContext.Provider value={commands}>

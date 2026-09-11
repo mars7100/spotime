@@ -1,4 +1,5 @@
 import { Library } from "./features/library/Library";
+import { UploadBar } from "./features/upload/UploadBar";
 import { PlayerBar } from "./features/player/PlayerBar";
 import { PlayerProvider } from "./player/PlayerProvider";
 import "./App.css";
@@ -13,6 +14,7 @@ export function App() {
             Spo<em>time</em>
           </h1>
         </header>
+        <UploadBar />
         <Library />
       </div>
       <PlayerBar />

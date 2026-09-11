@@ -15,11 +15,13 @@
   border-top: 1px solid var(--line);
 }
 
+/* A button: it is the way into the full-screen view and the way back out. */
 .player__now {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
+  text-align: left;
 }
 
 .player__meta {
@@ -273,4 +275,107 @@
   margin: 0;
   font-size: 0.78rem;
   color: var(--muted);
+}
+
+
+/* ---------------------------------------------------------------------------
+   Full-screen now playing.
+
+   The SAME footer, re-flowed — every control below is the same node as the
+   bar's, so there is no second player and playback state stays single-sourced.
+   These rules come last on purpose: `.player--full` and `.player` are equally
+   specific, so it is source order that lets the re-flow win.
+   --------------------------------------------------------------------------- */
+.player--full {
+  top: 0;
+  height: 100%;
+  padding: 60px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  overflow-y: auto;
+  border-top: none;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 55%);
+}
+
+.player__collapse {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+}
+
+.player--full .player__now {
+  flex-direction: column;
+  gap: 22px;
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+
+.player--full .player__now .art {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.player--full .player__meta {
+  width: 100%;
+}
+
+.player--full .player__title {
+  font-size: 1.9rem;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.player--full .player__sub {
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+
+/* The scrubber belongs above the buttons here, and the same two children
+   reversed is cheaper than a second markup order to keep in step. */
+.player--full .player__transport {
+  flex-direction: column-reverse;
+  gap: 16px;
+  width: 100%;
+}
+
+.player--full .scrub {
+  max-width: 560px;
+}
+
+.player--full .transport {
+  gap: 14px;
+}
+
+.player--full .ctl {
+  width: 44px;
+  height: 44px;
+}
+
+.player--full .ctl--primary {
+  width: 58px;
+  height: 58px;
+}
+
+/* The bar drops its secondary controls on a narrow screen for want of room;
+   the full-screen view has the room, so they come back. */
+.player--full .player__aux {
+  display: flex;
+  justify-content: center;
+}
+
+/* Anchored above the bar, the chapter list would sit off the top of a
+   full-height player. Here it is a sheet at the foot of the view instead. */
+.player--full .chapters {
+  position: fixed;
+  top: auto;
+  right: auto;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  max-height: 40vh;
 }

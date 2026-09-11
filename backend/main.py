@@ -391,7 +391,13 @@ def get_artwork(media_id: str):
     data = storage.read_bytes(item["artwork_path"])
     if data is None:
         raise HTTPException(404, "no artwork")
-    return Response(content=data, media_type="image/jpeg")
+    # Cover art is written once at register and never replaced (delete removes
+    # the media record along with it), so it is immutable for the life of the
+    # id. Without this header the browser re-fetched every cover on every load
+    # — one blocking storage read per library row, enough to saturate the
+    # threadpool and stampede the autoscaler into failing cold starts.
+    return Response(content=data, media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 # ----- streaming with HTTP Range support -------------------------------------

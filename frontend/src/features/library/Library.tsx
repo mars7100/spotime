@@ -3,12 +3,14 @@
    their own column, and a duration that lines up down the page. Audiobooks are
    ported, not redesigned — they keep the vanilla client's treatment (a progress
    bar and a resume line) restyled onto the new tokens. */
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CoverArt } from "../../ui/CoverArt";
 import { formatDuration, formatTime } from "../../lib/format";
 import type { AudiobookRecord, MediaRecord, MusicRecord } from "../../api/types";
 import { useNowPlaying, usePlayerCommands } from "../../player/PlayerProvider";
 import { toCards, type Card } from "./cards";
+import { applyFilters, hasAnyTag, isNarrowed, NO_FILTERS, tagCounts, type Filters } from "./filters";
+import { LibraryFilters } from "./LibraryFilters";
 import { useLibrary } from "./useLibrary";
 import "./library.css";
 
@@ -17,14 +19,26 @@ const RECENT_COUNT = 5;
 
 const NOTHING: MediaRecord[] = [];
 
+/** Ties the kind tabs to the list they narrow. */
+const PANEL_ID = "library-panel";
+
 export function Library() {
   const result = useLibrary();
   const { setQueueSource } = usePlayerCommands();
-  const items = result.status === "ready" ? result.items : NOTHING;
+  const all = result.status === "ready" ? result.items : NOTHING;
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+
+  // Search, tabs and tags narrow in one pass, so they compose rather than
+  // fight. Memoised because the queue is fed from this list by identity.
+  const items = useMemo(() => applyFilters(all, filters), [all, filters]);
 
   // The queue is the music currently in view, in library order. Handing the
   // list over here keeps the player ignorant of how the library was narrowed.
   useEffect(() => setQueueSource(items), [items, setQueueSource]);
+
+  // Counted over what is in view, not the whole library, so applying any
+  // suggestion always leaves something behind.
+  const suggestions = useMemo(() => tagCounts(items), [items]);
 
   if (result.status === "loading") {
     return <p className="library__note">Loading your library…</p>;
@@ -32,7 +46,7 @@ export function Library() {
   if (result.status === "error") {
     return <p className="library__note library__note--error">Couldn’t load your library: {result.message}</p>;
   }
-  if (items.length === 0) {
+  if (all.length === 0) {
     return (
       <div className="empty">
         <h2 className="empty__title">Nothing here yet</h2>
@@ -44,16 +58,48 @@ export function Library() {
     );
   }
 
+  return (
+    <>
+      <LibraryFilters
+        filters={filters}
+        onChange={setFilters}
+        suggestions={suggestions}
+        showTags={hasAnyTag(all)}
+        panelId={PANEL_ID}
+      />
+      <div
+        className="library"
+        id={PANEL_ID}
+        role="tabpanel"
+        aria-labelledby={`tab-${filters.kind}`}
+        tabIndex={-1}
+      >
+        <Sections cards={toCards(items)} narrowed={isNarrowed(filters)} />
+      </div>
+    </>
+  );
+}
+
+function Sections({ cards, narrowed }: { cards: Card[]; narrowed: boolean }) {
+  // An empty library and a library you have filtered down to nothing are
+  // different problems: one wants an upload prompt, the other wants to know
+  // the filters did this.
+  if (cards.length === 0) {
+    return <p className="library__note">No tracks match these filters.</p>;
+  }
+
+  // "Recently added" is a claim about the whole library, so it is only honest
+  // when nothing is narrowing it.
+  if (narrowed) return <Section title="Results" cards={cards} startIndex={1} />;
+
   // The API returns newest first, so the head of the list is what arrived last.
-  const cards = toCards(items);
   const recent = cards.slice(0, RECENT_COUNT);
   const rest = cards.slice(RECENT_COUNT);
-
   return (
-    <div className="library">
+    <>
       <Section title="Recently added" cards={recent} startIndex={1} />
       {rest.length > 0 && <Section title="Library" cards={rest} startIndex={recent.length + 1} />}
-    </div>
+    </>
   );
 }
 

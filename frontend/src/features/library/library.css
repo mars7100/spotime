@@ -144,6 +144,7 @@
   pointer-events: none;
 }
 
+
 /* The playing row is marked by an accent rail and an accent title — a
    background tint alone is invisible against a hovered neighbour. */
 .row--playing::before {

@@ -70,3 +70,53 @@ export const putState = (
 
 export const artworkUrl = (item: MediaRecord | { id: string; artwork_path: string | null }) =>
   item.artwork_path ? `/api/media/${item.id}/artwork` : null;
+
+
+/* ---------------------------------------------------------------------------
+   Uploads. Three steps, and the middle one is not here: the bytes go straight
+   to storage from the browser, so only the first and third talk to our server.
+   --------------------------------------------------------------------------- */
+
+/** Where to PUT the bytes, and the id the record will be registered under. */
+export interface UploadTarget {
+  id: string;
+  key: string;
+  /** A signed GCS URL in cloud mode; `/api/local-upload/…` on local disk. */
+  url: string;
+  method: string;
+  /** Sent verbatim — Content-Type is part of the GCS signature. */
+  headers: Record<string, string>;
+}
+
+export const createUploadTarget = (
+  filename: string,
+  contentType: string,
+): Promise<UploadTarget> =>
+  request("/api/media/upload-url", {
+    method: "POST",
+    body: JSON.stringify({ filename, content_type: contentType }),
+  });
+
+/** The metadata the browser read out of the file, plus the book it belongs to. */
+export interface RegisterBody {
+  id: string;
+  filename: string;
+  title: string | null;
+  artist: string | null;
+  album: string | null;
+  duration_seconds: number | null;
+  media_type: "music" | "audiobook";
+  cover_base64: string | null;
+  book_id: string | null;
+  book_title: string | null;
+  track_number: number | null;
+}
+
+/** Returns the record — the existing one if the server recognised a duplicate. */
+export const registerMedia = async (body: RegisterBody): Promise<MediaRecord> =>
+  normalize(
+    await request<MediaRecord>("/api/media/register", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  );

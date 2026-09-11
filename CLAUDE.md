@@ -67,7 +67,10 @@ at its current path and gates access via an `SPOTIME_PASSWORD` env var (cookie h
 **Static cache policy is path-aware** (`cache_static` in `backend/main.py`): content-hashed assets
 under `/assets/` are `immutable` for a year, everything else static is `no-cache`. Getting this
 backwards ships a build users never see; getting it half-right ships one they can never escape.
-`tests/test_static_cache.py` pins all of it.
+`tests/test_static_cache.py` pins all of it. Cover art (`/api/media/{id}/artwork`) is the one
+`/api` response carrying a cache header: it is written once at register and never replaced, so
+it is `immutable`. Uncached it was a stampede — the library fans out one blocking storage read
+per row, which saturated the request threadpool and took the service down.
 
 ## Cloud / deployment notes
 

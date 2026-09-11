@@ -155,3 +155,99 @@ export function showPage(): void {
 export function endCurrentTrack(): void {
   emit(mediaElement(), "ended");
 }
+
+/* ---------------------------------------------------------------------------
+   Operating-system media controls.
+
+   jsdom has neither `navigator.mediaSession` nor `MediaMetadata`, so without a
+   stub the app's OS integration is invisible to a test — it would silently take
+   the unsupported branch and every assertion about it would pass vacuously.
+   This records what the app published and lets a test press the OS's buttons.
+   --------------------------------------------------------------------------- */
+
+interface Metadata {
+  title: string;
+  artist: string;
+  album: string;
+  artwork: MediaImage[];
+}
+
+interface SessionStub {
+  metadata: Metadata | null;
+  playbackState: MediaSessionPlaybackState;
+  position: MediaPositionState | null;
+  handlers: Map<string, MediaSessionActionHandler>;
+}
+
+const stub: SessionStub = {
+  metadata: null,
+  playbackState: "none",
+  position: null,
+  handlers: new Map(),
+};
+
+export function installMediaSessionStub(): void {
+  class FakeMetadata implements Metadata {
+    title: string;
+    artist: string;
+    album: string;
+    artwork: MediaImage[];
+    constructor(init: MediaMetadataInit = {}) {
+      this.title = init.title ?? "";
+      this.artist = init.artist ?? "";
+      this.album = init.album ?? "";
+      this.artwork = init.artwork ?? [];
+    }
+  }
+  Object.defineProperty(globalThis, "MediaMetadata", {
+    configurable: true,
+    writable: true,
+    value: FakeMetadata,
+  });
+
+  const session = {
+    get metadata() {
+      return stub.metadata;
+    },
+    set metadata(value: Metadata | null) {
+      stub.metadata = value;
+    },
+    get playbackState() {
+      return stub.playbackState;
+    },
+    set playbackState(value: MediaSessionPlaybackState) {
+      stub.playbackState = value;
+    },
+    setActionHandler(action: string, handler: MediaSessionActionHandler | null) {
+      if (handler) stub.handlers.set(action, handler);
+      else stub.handlers.delete(action);
+    },
+    setPositionState(state?: MediaPositionState) {
+      stub.position = state ?? null;
+    },
+  };
+  Object.defineProperty(navigator, "mediaSession", {
+    configurable: true,
+    value: session,
+  });
+}
+
+/** What the lock screen is currently showing. */
+export const osNowPlaying = (): SessionStub => stub;
+
+/** Press a button on the lock screen, the keyboard, or the headphones.
+    Throws when the app never registered the action — an OS control the app
+    forgot to wire is exactly the failure worth catching. */
+export function osControl(action: string, details: Record<string, unknown> = {}): void {
+  const handler = stub.handlers.get(action);
+  if (!handler) throw new Error(`no media-session handler registered for "${action}"`);
+  handler({ action, ...details } as unknown as MediaSessionActionDetails);
+}
+
+/** Between tests: an OS with nothing playing and no handlers left over. */
+export function resetMediaSession(): void {
+  stub.metadata = null;
+  stub.playbackState = "none";
+  stub.position = null;
+  stub.handlers.clear();
+}

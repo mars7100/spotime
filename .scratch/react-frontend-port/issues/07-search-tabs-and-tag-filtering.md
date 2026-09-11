@@ -4,14 +4,14 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] Searching narrows the library by title, artist, or album
-- [ ] Tabs switch between All, Music, and Audiobooks
-- [ ] Tags can be applied as filters, and several combine to narrow to the intersection
-- [ ] Each active filter appears as a chip that can be dismissed individually, so it is always clear why the list is short
-- [ ] Each selectable tag shows how many tracks carry it, derived from the library already loaded rather than a new endpoint
-- [ ] Tags can be searched by typing, so the filter works with hundreds of them
-- [ ] Search, tabs, and tag filters narrow correctly in combination
-- [ ] The tag filter is hidden entirely when there are no tags
-- [ ] Tests cover each of the three narrowing tools alone, and all three applied together
+- [x] Searching narrows the library by title, artist, or album
+- [x] Tabs switch between All, Music, and Audiobooks
+- [x] Tags can be applied as filters, and several combine to narrow to the intersection
+- [x] Each active filter appears as a chip that can be dismissed individually, so it is always clear why the list is short
+- [x] Each selectable tag shows how many tracks carry it, derived from the library already loaded rather than a new endpoint
+- [x] Tags can be searched by typing, so the filter works with hundreds of them
+- [x] Search, tabs, and tag filters narrow correctly in combination
+- [x] The tag filter is hidden entirely when there are no tags
+- [x] Tests cover each of the three narrowing tools alone, and all three applied together

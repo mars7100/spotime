@@ -1,0 +1,208 @@
+/* The narrowing toolbar. Everything here is quiet by default and picks up the
+   accent only when it is actually doing something, so a library with no filters
+   applied reads as a library rather than as a control panel. */
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 10px;
+}
+
+.filters__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ---------- search ---------- */
+
+.searchbox {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.searchbox__icon {
+  position: absolute;
+  left: 11px;
+  color: var(--faint);
+  pointer-events: none;
+}
+
+.searchbox__input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 9px 12px 9px 38px;
+  transition:
+    border-color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+
+.searchbox__input::placeholder {
+  color: var(--faint);
+}
+
+.searchbox__input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+/* The browser's own clear button is a light-mode glyph; ours is the Escape key
+   and the text itself. */
+.searchbox__input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+/* ---------- kind tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  flex: none;
+}
+
+.tab {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--fast) var(--ease),
+    background var(--fast) var(--ease);
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab--on {
+  color: var(--bg);
+  background: var(--accent);
+}
+
+.tab--on:hover {
+  color: var(--bg);
+}
+
+/* ---------- tag filter ---------- */
+
+.tagfilter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* An applied filter. Loud on purpose: it is the answer to "why is this list so
+   short", so it has to be the thing you notice. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 8px 4px 11px;
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip__x {
+  opacity: 0.7;
+}
+
+.typeahead {
+  position: relative;
+  flex: 0 1 200px;
+  min-width: 140px;
+}
+
+.typeahead__input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--text);
+  background: none;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+}
+
+.typeahead__input::placeholder {
+  color: var(--faint);
+}
+
+.typeahead__input:focus-visible {
+  outline: none;
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.typeahead__list {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 5px);
+  left: 0;
+  min-width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
+}
+
+.typeahead__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.typeahead__option:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.typeahead__count {
+  font-size: 0.7rem;
+  color: var(--faint);
+}
