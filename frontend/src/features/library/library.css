@@ -164,6 +164,13 @@
   opacity: 1;
 }
 
+/* No hover on a phone, so the menu button is simply always there. */
+@media (hover: none) {
+  .row-menu__btn {
+    opacity: 1;
+  }
+}
+
 .row-menu__btn:hover {
   color: var(--text);
   background: var(--surface-2);

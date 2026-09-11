@@ -1,9 +1,11 @@
 /* Acts on the current selection. Tag add/remove keep the selection so a bad
    bulk tag can be undone without re-ticking; delete clears it, since the rows
-   are gone. Native confirm/alert, as elsewhere in the port. */
+   are gone. Confirm stays native, as elsewhere in the port; outcomes go to
+   the toast. */
 import { useState } from "react";
 import { bulkDelete, bulkTags } from "../../api/client";
 import { notifyLibraryChanged } from "./refresh";
+import { toast } from "../../ui/toast";
 import "./bulk.css";
 
 const parseTags = (input: string) =>
@@ -22,11 +24,12 @@ export function BulkBar({
 
   const tag = (change: { add?: string[]; remove?: string[] }) =>
     bulkTags(ids, change)
-      .then(() => {
+      .then((r) => {
+        toast(`${change.add ? "Added to" : "Removed from"} ${r.updated} track(s)`);
         setInput("");
         notifyLibraryChanged();
       })
-      .catch(() => window.alert("Bulk tagging failed"));
+      .catch(() => toast("Bulk tagging failed"));
 
   const remove = () => {
     const n = selected.length;
@@ -34,11 +37,12 @@ export function BulkBar({
     const more = n > 5 ? `\n…and ${n - 5} more` : "";
     if (!window.confirm(`Delete ${n} track(s)? This cannot be undone.\n\n${preview}${more}`)) return;
     bulkDelete(ids)
-      .then(() => {
+      .then((r) => {
+        toast(`Deleted ${r.deleted} track(s)`);
         onClear();
         notifyLibraryChanged();
       })
-      .catch(() => window.alert("Bulk delete failed"));
+      .catch(() => toast("Bulk delete failed"));
   };
 
   return (

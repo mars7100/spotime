@@ -2,6 +2,7 @@ import { Library } from "./features/library/Library";
 import { UploadBar } from "./features/upload/UploadBar";
 import { PlayerBar } from "./features/player/PlayerBar";
 import { PlayerProvider } from "./player/PlayerProvider";
+import { Toasts } from "./ui/Toasts";
 import "./App.css";
 
 export function App() {
@@ -18,6 +19,7 @@ export function App() {
         <Library />
       </div>
       <PlayerBar />
+      <Toasts />
     </PlayerProvider>
   );
 }

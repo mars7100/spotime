@@ -15,6 +15,7 @@ import { toCards, type Card } from "./cards";
 import { applyFilters, hasAnyTag, isNarrowed, NO_FILTERS, tagCounts, type Filters } from "./filters";
 import { LibraryFilters } from "./LibraryFilters";
 import { notifyLibraryChanged } from "./refresh";
+import { toast } from "../../ui/toast";
 import { RowMenu } from "./RowMenu";
 import { useLibrary } from "./useLibrary";
 import "./library.css";
@@ -190,22 +191,29 @@ const subtitleOf = (item: MediaRecord) =>
   [item.artist, item.album].filter(Boolean).join(" — ") || "Unknown";
 
 /* The browser's own prompt and confirm, as in the vanilla client — replacing
-   them is out of scope for the port. The server normalises tags (lowercase,
-   trim, dedupe), so the input is only split here; the reload shows the result. */
+   them is out of scope for the port; outcomes go to the toast. The server
+   normalises tags (lowercase, trim, dedupe), so the input is only split here;
+   the reload shows the result. */
 function editTags(item: MusicRecord) {
   const input = window.prompt("Tags (comma-separated):", item.tags.join(", "));
   if (input === null) return;
   const tags = input.split(",").map((t) => t.trim()).filter(Boolean);
   setTags(item.id, tags)
-    .then(notifyLibraryChanged)
-    .catch(() => window.alert("Could not save tags"));
+    .then(() => {
+      toast("Tags saved");
+      notifyLibraryChanged();
+    })
+    .catch(() => toast("Could not save tags"));
 }
 
 function confirmDelete(title: string, remove: () => Promise<unknown>) {
   if (!window.confirm(`Delete "${title}"?`)) return;
   remove()
-    .then(notifyLibraryChanged)
-    .catch(() => window.alert("Could not delete"));
+    .then(() => {
+      toast("Deleted");
+      notifyLibraryChanged();
+    })
+    .catch(() => toast("Could not delete"));
 }
 
 /** The whole row is the target — the button is stretched over it rather than

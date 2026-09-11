@@ -1,0 +1,26 @@
+/* Bottom-centre, clear of the player bar (fixed, z-index 20), never in the way. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  z-index: 30;
+  max-width: calc(100% - 32px);
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 35%);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition:
+    opacity var(--fast) var(--ease),
+    transform var(--fast) var(--ease);
+}
+
+.toast[data-shown="true"] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}

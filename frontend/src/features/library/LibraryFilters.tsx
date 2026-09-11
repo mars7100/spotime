@@ -2,7 +2,7 @@
    The tag filter is a typeahead rather than a wall of chips because a wall
    stops working somewhere around fifty tags: what is *applied* shows as
    dismissable chips, and everything else is found by typing. */
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { IconClose, IconSearch } from "../../ui/icons";
 import type { Filters, Kind } from "./filters";
 import "./filters.css";
@@ -95,8 +95,18 @@ function Tabs({
   onChange: (k: Kind) => void;
   panelId: string;
 }) {
+  // Tablist convention: one Tab stop for the group, arrows move within it.
+  const move = (e: KeyboardEvent) => {
+    const i = TABS.findIndex((t) => t.kind === kind);
+    const step = { ArrowRight: 1, ArrowLeft: -1, Home: -i, End: TABS.length - 1 - i }[e.key];
+    if (step === undefined) return;
+    e.preventDefault();
+    const next = TABS[(i + step + TABS.length) % TABS.length].kind;
+    onChange(next);
+    document.getElementById(`tab-${next}`)?.focus();
+  };
   return (
-    <div className="tabs" role="tablist" aria-label="Kind">
+    <div className="tabs" role="tablist" aria-label="Kind" onKeyDown={move}>
       {TABS.map((tab) => (
         <button
           key={tab.kind}
@@ -105,6 +115,7 @@ function Tabs({
           id={`tab-${tab.kind}`}
           aria-selected={kind === tab.kind}
           aria-controls={panelId}
+          tabIndex={kind === tab.kind ? 0 : -1}
           className={`tab${kind === tab.kind ? " tab--on" : ""}`}
           onClick={() => onChange(tab.kind)}
         >
