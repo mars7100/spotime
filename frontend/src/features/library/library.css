@@ -121,11 +121,6 @@
   text-align: right;
 }
 
-/* Reserved for the overflow menu (ticket 11) so the grid does not shift. */
-.row-menu-slot {
-  width: 28px;
-}
-
 /* The whole row is the play target. Stretched over the row rather than
    wrapping it, so a menu button can sit above it later. */
 .row__hit {
@@ -135,15 +130,76 @@
   z-index: 0;
 }
 
-/* …so the row's own content must not swallow the click. A control added to a
-   row later (the overflow menu, ticket 11) re-enables pointer events on itself
-   and raises its own stacking. */
+/* …so the row's own content must not swallow the click. The overflow menu is
+   the one control that re-enables pointer events and raises its own stacking. */
 .row > *:not(.row__hit) {
   position: relative;
   z-index: 1;
   pointer-events: none;
 }
 
+/* Must out-specify the `.row > *` rule above, or the click falls through to the play hit. */
+.row > .row-menu {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  width: 28px;
+}
+
+/* Hidden until the row is hovered or holds focus, so the list stays quiet. */
+.row-menu__btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.row:hover .row-menu__btn,
+.row:focus-within .row-menu__btn,
+.row-menu__btn[aria-expanded="true"] {
+  opacity: 1;
+}
+
+.row-menu__btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.menu {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  right: 0;
+  min-width: 160px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px;
+  box-shadow: 0 12px 28px rgb(0 0 0 / 45%);
+}
+
+.menu__item {
+  display: block;
+  width: 100%;
+  font-size: 0.78rem;
+  border-radius: 5px;
+  padding: 6px 9px;
+  text-align: left;
+}
+
+.menu__item:hover,
+.menu__item:focus-visible {
+  background: var(--surface);
+}
+
+/* The destructive action must not look like the neutral one. */
+.menu__item--danger {
+  color: var(--danger);
+}
 
 /* The playing row is marked by an accent rail and an accent title — a
    background tint alone is invisible against a hovered neighbour. */

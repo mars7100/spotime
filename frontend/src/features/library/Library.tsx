@@ -4,6 +4,7 @@
    ported, not redesigned — they keep the vanilla client's treatment (a progress
    bar and a resume line) restyled onto the new tokens. */
 import { useEffect, useMemo, useState } from "react";
+import { bulkDelete, deleteMedia, setTags } from "../../api/client";
 import { CoverArt } from "../../ui/CoverArt";
 import { formatDuration, formatTime } from "../../lib/format";
 import type { AudiobookRecord, MediaRecord, MusicRecord } from "../../api/types";
@@ -11,6 +12,8 @@ import { useNowPlaying, usePlayerCommands } from "../../player/PlayerProvider";
 import { toCards, type Card } from "./cards";
 import { applyFilters, hasAnyTag, isNarrowed, NO_FILTERS, tagCounts, type Filters } from "./filters";
 import { LibraryFilters } from "./LibraryFilters";
+import { notifyLibraryChanged } from "./refresh";
+import { RowMenu } from "./RowMenu";
 import { useLibrary } from "./useLibrary";
 import "./library.css";
 
@@ -130,9 +133,28 @@ function Row({ card, index }: { card: Card; index: number }) {
 const subtitleOf = (item: MediaRecord) =>
   [item.artist, item.album].filter(Boolean).join(" — ") || "Unknown";
 
+/* The browser's own prompt and confirm, as in the vanilla client — replacing
+   them is out of scope for the port. The server normalises tags (lowercase,
+   trim, dedupe), so the input is only split here; the reload shows the result. */
+function editTags(item: MusicRecord) {
+  const input = window.prompt("Tags (comma-separated):", item.tags.join(", "));
+  if (input === null) return;
+  const tags = input.split(",").map((t) => t.trim()).filter(Boolean);
+  setTags(item.id, tags)
+    .then(notifyLibraryChanged)
+    .catch(() => window.alert("Could not save tags"));
+}
+
+function confirmDelete(title: string, remove: () => Promise<unknown>) {
+  if (!window.confirm(`Delete "${title}"?`)) return;
+  remove()
+    .then(notifyLibraryChanged)
+    .catch(() => window.alert("Could not delete"));
+}
+
 /** The whole row is the target — the button is stretched over it rather than
-    wrapping it, so ticket 11's overflow menu can sit inside the row without
-    nesting a button inside a button. */
+    wrapping it, so the overflow menu sits inside the row without nesting a
+    button inside a button. */
 function PlayHit({ label, onPlay }: { label: string; onPlay: () => void }) {
   return (
     <button type="button" className="row__hit" aria-label={`Play ${label}`} onClick={onPlay} />
@@ -173,7 +195,11 @@ function TrackRow({ item, index }: { item: MusicRecord; index: number }) {
         ))}
       </div>
       <div className="dur mono">{formatDuration(item.duration_seconds)}</div>
-      <div className="row-menu-slot" />
+      <RowMenu
+        label={item.title}
+        onEditTags={() => editTags(item)}
+        onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
+      />
     </li>
   );
 }
@@ -216,7 +242,10 @@ function AudiobookRow({ item, index }: { item: AudiobookRecord; index: number })
       </div>
       <div className="pills" />
       <div className="dur mono">{formatDuration(item.duration_seconds)}</div>
-      <div className="row-menu-slot" />
+      <RowMenu
+        label={item.title}
+        onDelete={() => confirmDelete(item.title, () => deleteMedia(item.id))}
+      />
     </li>
   );
 }
@@ -266,7 +295,12 @@ function BookRow({
       </div>
       <div className="pills" />
       <div className="dur mono">{formatDuration(total || null)}</div>
-      <div className="row-menu-slot" />
+      <RowMenu
+        label={card.title}
+        onDelete={() =>
+          confirmDelete(card.title, () => bulkDelete(card.tracks.map((t) => t.id)))
+        }
+      />
     </li>
   );
 }

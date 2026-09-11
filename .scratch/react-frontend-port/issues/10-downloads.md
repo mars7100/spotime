@@ -4,7 +4,7 @@
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** wontfix
 
 - [ ] A URL can be submitted from a form that stays collapsed until asked for
 - [ ] Tags can be applied at download time and land on every track the job produces
@@ -14,3 +14,10 @@
 - [ ] A failed download surfaces the reason, so it is clear whether to retry
 - [ ] The browser extension's existing flow continues to work untouched, with no CORS middleware and no token endpoint added
 - [ ] Tests cover: starting a job and polling it; finished tracks appearing progressively; a failure surfacing its reason
+
+## Comments
+
+2026-09-10 — wontfix. Downloads are only ever started from the Chrome extension
+(`extension/`), which talks straight to `POST /api/download`; the in-app URL form is
+unused. The backend stays. Consequence: the React client has no job-progress view, so
+tracks the extension registers show up on the next library refresh, not live.

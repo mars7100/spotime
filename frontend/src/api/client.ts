@@ -71,6 +71,21 @@ export const putState = (
 export const artworkUrl = (item: MediaRecord | { id: string; artwork_path: string | null }) =>
   item.artwork_path ? `/api/media/${item.id}/artwork` : null;
 
+/** The server normalises (lowercase, trim, dedupe) and hands back the record. */
+export const setTags = async (id: string, tags: string[]): Promise<MediaRecord> =>
+  normalize(
+    await request<MediaRecord>(`/api/media/${id}/tags`, {
+      method: "PUT",
+      body: JSON.stringify({ tags }),
+    }),
+  );
+
+export const deleteMedia = (id: string): Promise<void> =>
+  request(`/api/media/${id}`, { method: "DELETE" });
+
+/** One request for a whole selection; ids that no longer exist are skipped. */
+export const bulkDelete = (ids: string[]): Promise<{ deleted: number }> =>
+  request("/api/media/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) });
 
 /* ---------------------------------------------------------------------------
    Uploads. Three steps, and the middle one is not here: the bytes go straight
