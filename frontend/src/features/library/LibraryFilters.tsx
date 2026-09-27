@@ -4,7 +4,7 @@
    dismissable chips, and everything else is found by typing. */
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { IconClose, IconSearch } from "../../ui/icons";
-import type { Filters, Kind } from "./filters";
+import { SORT_OPTIONS, type Filters, type Kind, type SortKey } from "./filters";
 import "./filters.css";
 
 /** Beyond this the list stops being a list you read and starts being a wall. */
@@ -48,6 +48,7 @@ export function LibraryFilters({
           onChange={(kind) => onChange({ ...filters, kind })}
           panelId={panelId}
         />
+        <SortSelect sort={filters.sort} onChange={(sort) => onChange({ ...filters, sort })} />
         {onToggleSelect && (
           <button
             type="button"
@@ -83,6 +84,23 @@ function SearchBox({ value, onChange }: { value: string; onChange: (v: string) =
         onChange={(e) => onChange(e.target.value)}
       />
     </div>
+  );
+}
+
+function SortSelect({ sort, onChange }: { sort: SortKey; onChange: (sort: SortKey) => void }) {
+  return (
+    <select
+      className="sortselect"
+      aria-label="Sort"
+      value={sort}
+      onChange={(e) => onChange(e.target.value as SortKey)}
+    >
+      {SORT_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 }
 

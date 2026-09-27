@@ -1,5 +1,6 @@
 /* The playback queue, as pure functions.
-   The queue is the standalone music currently in view, in library order. Books
+   The queue is the standalone music that was in view when a song was clicked,
+   captured then rather than tracking the library's filters afterwards. Books
    are excluded: a folder book advances chapter-to-chapter on its own, and a
    single-file book has nowhere to advance to. */
 import type { MediaRecord } from "../api/types";

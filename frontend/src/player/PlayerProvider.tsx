@@ -64,7 +64,11 @@ export interface PlayerState {
 }
 
 export interface PlayerCommands {
-  play(item: MediaRecord): void;
+  /** `view`, when given, is what was in view when the song was clicked — it
+      becomes the queue, captured at that moment rather than tracking whatever
+      the library is filtered to later. Omitted for a single-file audiobook,
+      which has no queue to capture. */
+  play(item: MediaRecord, view?: MediaRecord[]): void;
   /** Open a folder book at one of its chapters; playback then runs on from
       there, chapter to chapter. */
   playBook(book: BookRef, index: number): void;
@@ -77,10 +81,10 @@ export interface PlayerCommands {
   setSpeed(rate: number): void;
   setVolume(level: number): void;
   toggleShuffle(): void;
-  /** The library hands over what is in view; the queue is derived from it. */
-  setQueueSource(items: MediaRecord[]): void;
   /** These records were deleted. If one of them is playing, playback stops —
-      the bytes may still be cached, but the thing they belonged to is gone. */
+      the bytes may still be cached, but the thing they belonged to is gone.
+      Either way they are dropped from the queue, so a deleted track is never
+      stepped to. */
   forget(ids: string[]): void;
 }
 
@@ -194,7 +198,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     audio.volume = volume;
   }, [volume]);
 
-  // The queue follows what is in view, and is re-rolled when shuffle changes.
+  // The queue is the list captured at the last song click; re-rolled when
+  // shuffle changes.
   useEffect(() => {
     setQueue(buildQueue(source, { shuffle, pin: currentRef.current?.id ?? null }));
   }, [source, shuffle]);
@@ -420,6 +425,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   endedRef.current = finished;
 
   const forget = useCallback((ids: string[]) => {
+    setSource((s) => (s.some((it) => ids.includes(it.id)) ? s.filter((it) => !ids.includes(it.id)) : s));
+
     const item = currentRef.current;
     if (!item || !ids.includes(item.id)) return;
     // Cleared before the pause so its save handler has nothing to write for a
@@ -438,7 +445,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const commands = useMemo<PlayerCommands>(
     () => ({
-      play: (item) => void play(item),
+      play: (item, view) => {
+        if (view) setSource(view);
+        void play(item);
+      },
       playBook: (target, index) => {
         const at = Math.min(Math.max(0, index), target.tracks.length - 1);
         const track = target.tracks[at];
@@ -509,7 +519,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           store(SHUFFLE_KEY, on ? "0" : "1");
           return !on;
         }),
-      setQueueSource: setSource,
       forget,
     }),
     [play, saveNow, forget],

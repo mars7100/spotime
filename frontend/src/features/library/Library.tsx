@@ -12,7 +12,15 @@ import type { AudiobookRecord, MediaRecord, MusicRecord } from "../../api/types"
 import { useNowPlaying, usePlayerCommands } from "../../player/PlayerProvider";
 import { BulkBar } from "./BulkBar";
 import { toCards, type Card } from "./cards";
-import { applyFilters, hasAnyTag, isNarrowed, NO_FILTERS, tagCounts, type Filters } from "./filters";
+import {
+  applyFilters,
+  DEFAULT_SORT,
+  hasAnyTag,
+  isNarrowed,
+  NO_FILTERS,
+  tagCounts,
+  type Filters,
+} from "./filters";
 import { LibraryFilters } from "./LibraryFilters";
 import { notifyLibraryChanged } from "./refresh";
 import { toast } from "../../ui/toast";
@@ -36,7 +44,6 @@ interface Sel {
 
 export function Library() {
   const result = useLibrary();
-  const { setQueueSource } = usePlayerCommands();
   const all = result.status === "ready" ? result.items : NOTHING;
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   // One value for "am I selecting" and "what is selected": null is not
@@ -62,13 +69,10 @@ export function Library() {
       }),
   };
 
-  // Search, tabs and tags narrow in one pass, so they compose rather than
-  // fight. Memoised because the queue is fed from this list by identity.
+  // Search, tabs, tags and sort narrow and order in one pass, so they compose
+  // rather than fight. This is also the list captured as the queue when a
+  // song in it is clicked — see TrackRow.
   const items = useMemo(() => applyFilters(all, filters), [all, filters]);
-
-  // The queue is the music currently in view, in library order. Handing the
-  // list over here keeps the player ignorant of how the library was narrowed.
-  useEffect(() => setQueueSource(items), [items, setQueueSource]);
 
   // Counted over what is in view, not the whole library, so applying any
   // suggestion always leaves something behind.
@@ -122,13 +126,28 @@ export function Library() {
         aria-labelledby={`tab-${filters.kind}`}
         tabIndex={-1}
       >
-        <Sections cards={toCards(items)} narrowed={isNarrowed(filters)} sel={sel} />
+        <Sections
+          cards={toCards(items)}
+          narrowed={isNarrowed(filters) || filters.sort !== DEFAULT_SORT}
+          sel={sel}
+          view={items}
+        />
       </div>
     </>
   );
 }
 
-function Sections({ cards, narrowed, sel }: { cards: Card[]; narrowed: boolean; sel: Sel | null }) {
+function Sections({
+  cards,
+  narrowed,
+  sel,
+  view,
+}: {
+  cards: Card[];
+  narrowed: boolean;
+  sel: Sel | null;
+  view: MediaRecord[];
+}) {
   // An empty library and a library you have filtered down to nothing are
   // different problems: one wants an upload prompt, the other wants to know
   // the filters did this.
@@ -136,18 +155,21 @@ function Sections({ cards, narrowed, sel }: { cards: Card[]; narrowed: boolean; 
     return <p className="library__note">No tracks match these filters.</p>;
   }
 
-  // "Recently added" is a claim about the whole library, so it is only honest
-  // when nothing is narrowing it.
-  if (narrowed) return <Section title="Results" cards={cards} startIndex={1} sel={sel} />;
+  // "Recently added" is a claim about the whole library in newest-first
+  // order, so it is only honest when nothing is narrowing it and nothing has
+  // reordered it — `narrowed` here covers both.
+  if (narrowed) {
+    return <Section title="Results" cards={cards} startIndex={1} sel={sel} view={view} />;
+  }
 
   // The API returns newest first, so the head of the list is what arrived last.
   const recent = cards.slice(0, RECENT_COUNT);
   const rest = cards.slice(RECENT_COUNT);
   return (
     <>
-      <Section title="Recently added" cards={recent} startIndex={1} sel={sel} />
+      <Section title="Recently added" cards={recent} startIndex={1} sel={sel} view={view} />
       {rest.length > 0 && (
-        <Section title="Library" cards={rest} startIndex={recent.length + 1} sel={sel} />
+        <Section title="Library" cards={rest} startIndex={recent.length + 1} sel={sel} view={view} />
       )}
     </>
   );
@@ -158,11 +180,13 @@ function Section({
   cards,
   startIndex,
   sel,
+  view,
 }: {
   title: string;
   cards: Card[];
   startIndex: number;
   sel: Sel | null;
+  view: MediaRecord[];
 }) {
   return (
     <section>
@@ -171,17 +195,27 @@ function Section({
       </h2>
       <ul className={`list${sel ? " list--selecting" : ""}`}>
         {cards.map((card, i) => (
-          <Row key={card.id} card={card} index={startIndex + i} sel={sel} />
+          <Row key={card.id} card={card} index={startIndex + i} sel={sel} view={view} />
         ))}
       </ul>
     </section>
   );
 }
 
-function Row({ card, index, sel }: { card: Card; index: number; sel: Sel | null }) {
+function Row({
+  card,
+  index,
+  sel,
+  view,
+}: {
+  card: Card;
+  index: number;
+  sel: Sel | null;
+  view: MediaRecord[];
+}) {
   if (card.kind === "book") return <BookRow card={card} index={index} inert={sel != null} />;
   return card.item.media_type === "music" ? (
-    <TrackRow item={card.item} index={index} sel={sel} />
+    <TrackRow item={card.item} index={index} sel={sel} view={view} />
   ) : (
     <AudiobookRow item={card.item} index={index} inert={sel != null} />
   );
@@ -256,7 +290,17 @@ function RowIndex({
   );
 }
 
-function TrackRow({ item, index, sel }: { item: MusicRecord; index: number; sel: Sel | null }) {
+function TrackRow({
+  item,
+  index,
+  sel,
+  view,
+}: {
+  item: MusicRecord;
+  index: number;
+  sel: Sel | null;
+  view: MediaRecord[];
+}) {
   const { play, forget } = usePlayerCommands();
   const now = useNowPlaying();
   const active = now.id === item.id;
@@ -275,7 +319,7 @@ function TrackRow({ item, index, sel }: { item: MusicRecord; index: number; sel:
           onChange={() => sel.toggle(item.id)}
         />
       ) : (
-        <PlayHit label={item.title} onPlay={() => play(item)} />
+        <PlayHit label={item.title} onPlay={() => play(item, view)} />
       )}
       <RowIndex index={index} active={active} playing={now.playing} selected={selected} />
       <CoverArt mediaId={item.artwork_path ? item.id : null} kind="music" />

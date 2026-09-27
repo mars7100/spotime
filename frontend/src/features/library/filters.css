@@ -104,24 +104,37 @@
   color: var(--bg);
 }
 
-/* ---------- select mode toggle ---------- */
+/* ---------- select mode toggle & sort ---------- */
 
 /* A lone tab: same shape, pressed state in the accent. */
-.select-toggle {
+.select-toggle,
+.sortselect {
   font: inherit;
   font-size: 0.78rem;
-  font-weight: 500;
   color: var(--muted);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 8px 13px;
   cursor: pointer;
-  white-space: nowrap;
   flex: none;
+}
+
+.select-toggle {
+  font-weight: 500;
+  padding: 8px 13px;
+  white-space: nowrap;
   transition:
     color var(--fast) var(--ease),
     background var(--fast) var(--ease);
+}
+
+.sortselect {
+  padding: 7px 10px;
+}
+
+.sortselect:focus-visible {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .select-toggle:hover {
